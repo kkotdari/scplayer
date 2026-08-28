@@ -178,6 +178,7 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
             </>
           ) : null,
         }}
+        avatars={false}
         initialSec={initialSec} initialSpeed={initialSpeed}
         initialView={initialView} initialTrack={initialTrack}
         clockKey={String(gameResult.matchNo || gameResult.id)}
