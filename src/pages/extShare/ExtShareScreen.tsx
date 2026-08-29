@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, BookOpen, Lock, Play } from "lucide-react";
 import GameResultStory from "../activity/GameResultStory";
 import GuideScreen from "../guide/GuideScreen";
@@ -47,12 +47,27 @@ function listFromUrl(): number | null {
     const v = Number(new URLSearchParams(window.location.search).get("list"));
     return Number.isFinite(v) && v > 0 ? v : null;
 }
-function setUrlList(listId: number | null): void {
+/** 지금 열린 판 — 목록과 같은 결로 주소에 적는다(?list=3&game=10). */
+function gameFromUrl(): number | null {
+    const v = Number(new URLSearchParams(window.location.search).get("game"));
+    return Number.isFinite(v) && v > 0 ? v : null;
+}
+/** 주소를 지금 자리에 맞춘다.
+ *  push면 뒤로가기가 짚을 자리가 하나 생긴다 — 판을 열 때만 그렇게 한다. 목록 이동은
+ *  종전대로 replace다(그래야 목록에서 뒤로가기가 이 사이트 밖으로 나간다 — 이 앱은
+ *  화면이 하나뿐이라 목록이 곧 첫 자리다). */
+function setUrl(listId: number | null, gameId: number | null, push = false): void {
     const params = new URLSearchParams();
     if (listId !== null)
         params.set("list", String(listId));
+    if (gameId !== null)
+        params.set("game", String(gameId));
     const qs = params.toString();
-    window.history.replaceState(null, "", `${PATH}${qs ? `?${qs}` : ""}`);
+    const url = `${PATH}${qs ? `?${qs}` : ""}`;
+    if (push)
+        window.history.pushState(null, "", url);
+    else
+        window.history.replaceState(null, "", url);
 }
 export default function ExtShareScreen() {
     const [lists, setLists] = useState<ExtShareList[] | null>(null);
@@ -60,15 +75,34 @@ export default function ExtShareScreen() {
     const [pass, setPass] = useState("");
     const [typed, setTyped] = useState("");
     const [games, setGames] = useState<ExtShareGame[] | null>(null);
-    const [openId, setOpenId] = useState<number | null>(null);
+    const [openId, setOpenId] = useState<number | null>(gameFromUrl);
     const [err, setErr] = useState("");
     const [busy, setBusy] = useState(false);
     const [guide, setGuide] = useState(false);
     const memberOf = useCallback(() => undefined, []);
     useEffect(() => forceLightTheme(), []);
+    /** 우리가 밀어 넣은 자리인가 — 닫기 버튼이 history.back()을 써도 되는지가 여기 달렸다.
+     *  주소를 그대로 받아 들어온 사람(공유 링크)의 뒤에는 우리 자리가 없어서, 그때
+     *  back()을 부르면 사이트 밖으로 나간다. */
+    const pushed = useRef(false);
     useEffect(() => {
-        document.title = TITLE;
-        setUrlList(listFromUrl());
+        setUrl(listFromUrl(), gameFromUrl());
+    }, []);
+    /* 뒤로·앞으로 — 주소가 참이고 화면이 그것을 따른다. */
+    useEffect(() => {
+        const onPop = (): void => {
+            const l = listFromUrl();
+            const g = gameFromUrl();
+            pushed.current = false;
+            setListId(l);
+            setOpenId(g);
+            if (l === null) {
+                setGames(null);
+                setErr("");
+            }
+        };
+        window.addEventListener("popstate", onPop);
+        return () => window.removeEventListener("popstate", onPop);
     }, []);
     useEffect(() => {
         void api.pingPublicAccess(PUBLIC_SCREEN, listId === null ? undefined : `list#${listId}`);
@@ -152,16 +186,46 @@ export default function ExtShareScreen() {
         setOpenId(null);
         setGames(null);
         setErr("");
-        setUrlList(id);
+        pushed.current = false;
+        setUrl(id, null);
+    };
+    const openGame = (id: number): void => {
+        setOpenId(id);
+        setUrl(listId, id, true);
+        pushed.current = true;
+    };
+    /** 판을 닫는다 — 우리가 민 자리면 뒤로 물러서고(그 자리가 쌓이지 않는다), 받아 들어온
+     *  주소면 자리를 만들지 않고 주소만 목록으로 되돌린다. */
+    const closeGame = (): void => {
+        if (pushed.current) {
+            window.history.back();
+            return;
+        }
+        setOpenId(null);
+        setUrl(listId, null);
     };
     const open = openId === null ? null : games?.find((g) => g.id === openId) ?? null;
+    /* 주소가 가리키는 판이 이 목록에 없다 — 지워졌거나 남의 목록의 번호다. 조용히 목록으로
+       돌리되 주소도 함께 턴다(안 그러면 뒤로가기가 없는 판을 다시 짚는다). */
+    useEffect(() => {
+        if (openId === null || games === null)
+            return;
+        if (!games.some((g) => g.id === openId)) {
+            setOpenId(null);
+            setUrl(listId, null);
+        }
+    }, [games, openId, listId]);
+    /* 탭 이름 — 히스토리 목록에서 판끼리 갈리려면 자리마다 이름이 달라야 한다. */
+    useEffect(() => {
+        document.title = open ? `${gameTitleOf(open)} — ${TITLE}` : TITLE;
+    }, [open]);
     return (<div className="scr-app scr-app-fallback-scroll scr-extshare" id="scr-app">
       <div className="scr-bg-grid"/>
       <div id="scroll-root">
         <main className="scr-main scr-extshare-main">
           
           <header className="scr-crumb">
-            {(listId !== null || open) && (<button type="button" className="scr-crumb-back" onClick={() => (open ? setOpenId(null) : goList(null))}>
+            {(listId !== null || open) && (<button type="button" className="scr-crumb-back" onClick={() => (open ? closeGame() : goList(null))}>
                 <ArrowLeft size={16}/>
                 <span>{open ? "목록" : "전체 목록"}</span>
               </button>)}
@@ -208,7 +272,7 @@ export default function ExtShareScreen() {
                 {games.map((g) => {
                 const mins = g.durationSeconds != null
                     ? Math.round(g.durationSeconds / 60) : null;
-                return (<button type="button" key={g.id} className="scr-extshare-game" onClick={() => setOpenId(g.id)}>
+                return (<button type="button" key={g.id} className="scr-extshare-game" onClick={() => openGame(g.id)}>
                       <Play size={14} className="scr-extshare-gameicon"/>
                       <span className="scr-extshare-gamenames">{gameTitleOf(g)}</span>
                       <span className="scr-extshare-gamemeta">
