@@ -565,7 +565,7 @@ html:not(.scr-light-theme) .scr-app-hasbg .scr-header {
 
 
 .scr-main {
-  --main-pad-x: 20px; --card-bleed: var(--main-pad-x);
+  --main-pad-x: 0px; --card-bleed: var(--main-pad-x);
   --card-pad-bx: var(--main-pad-x); --card-head-pad-l: var(--main-pad-x);
   max-width: var(--content-max); margin: 0 auto; padding: 34px var(--main-pad-x) 96px;
   position: relative; z-index: 1;
@@ -1139,7 +1139,7 @@ html.scr-page-bg.scr-page-bg-light.scr-light-theme .scr-main::before {
   .scr-main {
     
     
-    --main-pad-x: 8px; padding: 8px var(--main-pad-x) 48px;
+    --main-pad-x: 0px; padding: 8px var(--main-pad-x) 48px;
     --card-pad-bx: 0px; --card-head-pad-l: 0px;
   }
 
@@ -2530,14 +2530,16 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 
 .scr-extshare-main {
-  --extshare-pad-x: 16px;
+  --extshare-pad-x: 0px;
   max-width: 1100px; margin: 0 auto; padding: 18px var(--extshare-pad-x) 48px;
 }
 
 
 .scr-crumb {
   display: flex; align-items: center; gap: 10px;
-  padding: 6px 2px 14px; border-bottom: 1px solid var(--line);
+  /* 상자가 좌우 여백을 걷었으니(--extshare-pad-x: 0) 머리 줄만 제 몫으로 든다 —
+     예전 자리(상자 16px + 제 2px)와 같은 18px. 밑줄은 화면 끝까지 간다. */
+  padding: 6px 18px 14px; border-bottom: 1px solid var(--line);
   margin-bottom: 16px;
 }
 
