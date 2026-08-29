@@ -40,6 +40,8 @@ function gameTitleOf(g: ExtShareGame): string {
 }
 const PATH = "/public/playlist";
 const TITLE = "스타크래프트 리플레이 재생기";
+/** 제목 밑 한 줄 — 첫 화면(목록도 판도 안 고른 자리)에서만 선다. 탭 이름은 TITLE 그대로다. */
+const SUBTITLE = "볼만한 리플레이 모음";
 const PUBLIC_SCREEN = "public_playlist";
 function listFromUrl(): number | null {
     const v = Number(new URLSearchParams(window.location.search).get("list"));
@@ -164,7 +166,12 @@ export default function ExtShareScreen() {
                 <span>{open ? "목록" : "전체 목록"}</span>
               </button>)}
 
-            <h1 className="scr-crumb-title">{open ? gameTitleOf(open) : current?.name ?? TITLE}</h1>
+            <h1 className="scr-crumb-title">
+              {open ? gameTitleOf(open) : current?.name ?? (<>
+                {TITLE}
+                <span className="scr-crumb-subtitle">{SUBTITLE}</span>
+              </>)}
+            </h1>
             
             {listId !== null && (<button type="button" className="scr-crumb-guide" onClick={() => setGuide(true)}>
                 <BookOpen size={13}/>
