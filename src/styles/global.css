@@ -565,7 +565,7 @@ html:not(.scr-light-theme) .scr-app-hasbg .scr-header {
 
 
 .scr-main {
-  --main-pad-x: 0px; --card-bleed: var(--main-pad-x);
+  --main-pad-x: 12px; --card-bleed: var(--main-pad-x);
   --card-pad-bx: var(--main-pad-x); --card-head-pad-l: var(--main-pad-x);
   max-width: var(--content-max); margin: 0 auto; padding: 34px var(--main-pad-x) 96px;
   position: relative; z-index: 1;
@@ -1139,7 +1139,7 @@ html.scr-page-bg.scr-page-bg-light.scr-light-theme .scr-main::before {
   .scr-main {
     
     
-    --main-pad-x: 0px; padding: 8px var(--main-pad-x) 48px;
+    --main-pad-x: 6px; padding: 8px var(--main-pad-x) 48px;
     --card-pad-bx: 0px; --card-head-pad-l: 0px;
   }
 
@@ -1807,6 +1807,12 @@ html.scr-comment-typing .scr-main::before { background: var(--card-bg) !importan
 
 
 .scr-story { display: flex; flex-direction: column; gap: 12px; }
+
+/* 재생기 한 벌만 상자 밖으로 — 바깥이 든 좌우 패딩만큼 되민다. 상자는 여백을 지키고
+   (글·로스터는 그 안에 서고) 지도만 화면 끝까지 간다. 자는 바깥이 실제로 쓰는 값이다:
+   .scr-extshare-main이 --extshare-pad-x로 패딩을 주므로 그것이 먼저고, 없으면
+   .scr-main의 --main-pad-x다. 값이 바뀌어도 여기가 따라간다. */
+.scr-story-player { margin-inline: calc(var(--extshare-pad-x, var(--main-pad-x, 0px)) * -1); }
 @media (min-width: 1160px) {
 
   .scr-roster-matchup.scr-story-matchup-wide { max-width: 820px; }
@@ -2530,16 +2536,14 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 
 .scr-extshare-main {
-  --extshare-pad-x: 0px;
+  --extshare-pad-x: 10px;
   max-width: 1100px; margin: 0 auto; padding: 18px var(--extshare-pad-x) 48px;
 }
 
 
 .scr-crumb {
   display: flex; align-items: center; gap: 10px;
-  /* 상자가 좌우 여백을 걷었으니(--extshare-pad-x: 0) 머리 줄만 제 몫으로 든다 —
-     예전 자리(상자 16px + 제 2px)와 같은 18px. 밑줄은 화면 끝까지 간다. */
-  padding: 6px 18px 14px; border-bottom: 1px solid var(--line);
+  padding: 6px 2px 14px; border-bottom: 1px solid var(--line);
   margin-bottom: 16px;
 }
 

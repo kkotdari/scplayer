@@ -155,7 +155,7 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
     }, [slots]);
     const teamOfRaw = useCallback((raw: string): 1 | 2 | undefined => teamByRaw.get(raw), [teamByRaw]);
     // 재생 상자(scr-story-map)는 ReplayModule이 제 몸으로 두른다 — 여기서 또 두르면 두 겹이다.
-    const mapBlock = storyMap && (<div {...stopBubble}>
+    const mapBlock = storyMap && (<div className="scr-story-player" {...stopBubble}>
       
       {/* 머리 한 줄과 재생기는 scplay의 ReplayModule 한 벌이다 — 승패 배지의 양쪽 세우기·
           가림(veil) 규약이 그 안에 있다. 이 앱은 무엇을 적을지만 넘긴다. */}
