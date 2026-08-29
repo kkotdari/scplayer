@@ -95,6 +95,12 @@ export interface GameResultSlot {
     memberId: string;
     race: Race | "";
     rawName?: string | null;
+    /** 1.16 이하 리플레이의 개인색(#rrggbb) — 서버가 리플레이를 파싱해 실어 준다.
+     *  재생기에 넘기면 참값에 색이 없는 옛 판도 여덟 색으로 갈린다(scplay MinimapMarker.color).
+     *  안 오면 종전대로 참값 → 팀색 순이다. */
+    color?: string | null;
+    /** 관전자 슬롯인가 — 참이면 재생기가 그 사람을 통째로 안 그린다(scplay MinimapMarker.observer). */
+    observer?: boolean | null;
     apm: number | null;
     eapm: number | null;
     cmdCount: number | null;

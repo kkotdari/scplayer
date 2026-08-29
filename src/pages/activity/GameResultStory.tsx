@@ -97,26 +97,35 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
             key: s.raw, name: s.name, memberId: s.slot.memberId,
             avatar: memberOf(s.slot.memberId)?.avatar ?? null,
             race: s.slot.race, team: s.team,
+            // 개인색과 관전자는 재생기가 아는 길이 없다 — 리플레이를 파싱한 쪽만 안다.
+            // 없으면 undefined로 둔다(빈 값을 넘기면 종전 규칙을 덮어쓴다).
+            color: s.slot.color ?? undefined,
+            observer: s.slot.observer ?? undefined,
             withName: true, highlight: hit,
             apm: s.slot.apm,
         };
     }), [slots, memberOf, highlightMemberIds, highlightTerms]);
+    // 관전자는 판을 안 든다 — 이 앱이 그리는 로스터·승패 이름·난전 판정은 걸러 낸
+    // 목록으로 센다(관전자가 끼면 1대1이 2대1로 세어져 이름 대신 "1팀 승"이 나온다).
+    // 재생기에 넘기는 bases는 그대로 둔다 — observer 칸을 보고 저쪽이 통째로 숨긴다.
+    const t1 = useMemo(() => team1.filter((s) => !s.observer), [team1]);
+    const t2 = useMemo(() => team2.filter((s) => !s.observer), [team2]);
     const o1 = outcomeFor("team1", result);
     const o2 = outcomeFor("team2", result);
     const winLabel = (() => {
         if (result === "draw")
             return "무승부";
-        const side = o1 === "win" ? team1 : team2;
-        if (isMeleeGame({ matchType: gameResult.matchType, team1, team2 })
-            || (team1.length === 1 && team2.length === 1)) {
-            return `${resolveSlotName(side[0], [...team1, ...team2], memberOf)} 승`;
+        const side = o1 === "win" ? t1 : t2;
+        if (isMeleeGame({ matchType: gameResult.matchType, team1: t1, team2: t2 })
+            || (t1.length === 1 && t2.length === 1)) {
+            return `${resolveSlotName(side[0], [...t1, ...t2], memberOf)} 승`;
         }
         return `${o1 === "win" ? 1 : 2}팀 승`;
     })();
     const mapName = cleanMapName(gameResult.mapName);
     const minutes = gameResult.durationSeconds != null
         ? Math.round(gameResult.durationSeconds / 60) : null;
-    const melee = isMeleeGame({ matchType: gameResult.matchType, team1, team2 });
+    const melee = isMeleeGame({ matchType: gameResult.matchType, team1: t1, team2: t2 });
     const storyMap = grid ?? null;
     const showRoster = grid === null;
     const [revealWin, setRevealWin] = useState(false);
@@ -187,29 +196,29 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         loadUnitTracks={() => api.getGameUnitTracks(gameResult.id)
           .catch(() => ({ motion: null }))}
         winnerTeam={gameResult.result === "team1" ? 1 : gameResult.result === "team2" ? 2 : undefined}
-        melee={isMeleeGame({ matchType: gameResult.matchType, team1, team2 })}
+        melee={isMeleeGame({ matchType: gameResult.matchType, team1: t1, team2: t2 })}
         onFinish={soleViewNow ? () => setRevealWin(true) : undefined}
         menu={menu}
       />
     </div>);
     return (<div className="scr-story">
       {showRoster && (melee ? (<div className={cx("scr-roster-matchup", "scr-roster-matchup-melee", "scr-activity-game-result-matchup", grid && "scr-story-matchup-wide")}>
-            {[...team1, ...team2].map((s9, i9) => (<React.Fragment key={`${s9.memberId}-${i9}`}>
+            {[...t1, ...t2].map((s9, i9) => (<React.Fragment key={`${s9.memberId}-${i9}`}>
                 {i9 > 0 && <span className="scr-story-melee-vs" aria-hidden>vs</span>}
                 <div className="scr-roster-melee-one">
                   <RosterSide team={[s9]} memberOf={memberOf} highlightMemberIds={highlightMemberIds} highlightTerms={highlightTerms}/>
                   
                   {result !== "not_held" && result !== "draw"
-                    && team1.some((w9) => w9.memberId === s9.memberId) && (<span className="scr-story-win scr-story-win-t1">승</span>)}
+                    && t1.some((w9) => w9.memberId === s9.memberId) && (<span className="scr-story-win scr-story-win-t1">승</span>)}
                 </div>
               </React.Fragment>))}
           </div>) : (<div className={cx("scr-roster-matchup", "scr-activity-game-result-matchup", grid && "scr-story-matchup-wide")}>
-          <RosterSide team={team1} memberOf={memberOf} highlightMemberIds={highlightMemberIds} highlightTerms={highlightTerms}/>
+          <RosterSide team={t1} memberOf={memberOf} highlightMemberIds={highlightMemberIds} highlightTerms={highlightTerms}/>
           
           <div className="scr-story-mid">
             {vsRow}
           </div>
-          <RosterSide team={team2} memberOf={memberOf} highlightMemberIds={highlightMemberIds} highlightTerms={highlightTerms}/>
+          <RosterSide team={t2} memberOf={memberOf} highlightMemberIds={highlightMemberIds} highlightTerms={highlightTerms}/>
         </div>))}
       {result === "not_held" && <div className="scr-activity-game-result-notheld">미실시</div>}
       {!showRoster && mapBlock}

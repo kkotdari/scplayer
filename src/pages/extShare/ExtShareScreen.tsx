@@ -27,12 +27,14 @@ function writePass(listId: number, pass: string): void {
 }
 /** 그 판을 부르는 이름 — **사람이 지은 제목이 먼저**고, 없으면 선수 이름을 vs로 잇는다.
  *  스타게이트 쪽 extShareGameTitle과 같은 규칙이다 — 두 화면이 같은 판을 다른 말로
- *  부르면 안 된다. */
+ *  부르면 안 된다. **관전자는 안 센다**(스타게이트도 같이 걷는다) — 판을 든 사람만
+ *  이름에 오른다. */
 function gameTitleOf(g: ExtShareGame): string {
     const made = (g.title ?? "").trim();
     if (made)
         return made;
     const names = [...g.team1, ...g.team2]
+        .filter((s) => !s.observer)
         .map((s) => s.rawName || s.memberId).filter(Boolean);
     return names.length > 0 ? names.join(" vs ") : "이름 없는 판";
 }
