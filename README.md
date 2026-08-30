@@ -24,3 +24,9 @@ npm run dev
 ## 배포 (Vercel)
 
 저장소 연결 + 환경변수 `VITE_API_BASE`만 넣으면 끝. SPA 되돌림은 `vercel.json`에 있다.
+
+`vercel.json`의 `installCommand`가 **scplay를 매번 최신으로 받는다** — `package.json`은
+`github:kkotdari/scplay`를 커밋 없이 가리키는데, npm은 그 주소 하나를 열쇠로 캐시를 재서
+scplay에 새 커밋이 들어가도 옛 것을 그대로 쓴다. 그래서 빌드 때 `git ls-remote`로 HEAD의
+sha를 뽑아 `#<sha>`를 붙여 한 번 더 받는다(열쇠가 달라져 캐시를 지나친다).
+`--no-save`라 `package.json`은 안 건드린다. 스타게이트도 같은 길이다.

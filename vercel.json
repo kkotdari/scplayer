@@ -1,3 +1,4 @@
 {
+  "installCommand": "npm install --no-audit --no-fund && SCPLAY_SHA=$(git ls-remote https://github.com/kkotdari/scplay.git HEAD | cut -f1) && echo \"scplay HEAD: $SCPLAY_SHA\" && npm install --no-save --no-audit --no-fund \"github:kkotdari/scplay#$SCPLAY_SHA\"",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
