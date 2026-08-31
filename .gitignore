@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env.local
 .env
+
+# 타입 검사가 남기는 증분 캐시 — 산출물이라 안 담는다(`tsc`를 돌리면 생긴다).
+*.tsbuildinfo
