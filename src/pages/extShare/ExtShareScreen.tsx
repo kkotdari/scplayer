@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, Lock, Play } from "lucide-react";
+import { ArrowLeft, BookOpen, Boxes, Lock, Play } from "lucide-react";
 import GameResultStory from "../activity/GameResultStory";
 import GuideScreen from "../guide/GuideScreen";
+import GalleryScreen from "../gallery/GalleryScreen";
 import { LoadingMark, Spinner } from "../../components/common/Feedback";
 import { api, setExtShareContext } from "../../api/client";
 import { cleanMapName } from "../../utils/mapName";
@@ -56,8 +57,26 @@ function gameFromUrl(): number | null {
  *  push면 뒤로가기가 짚을 자리가 하나 생긴다 — 판을 열 때만 그렇게 한다. 목록 이동은
  *  종전대로 replace다(그래야 목록에서 뒤로가기가 이 사이트 밖으로 나간다 — 이 앱은
  *  화면이 하나뿐이라 목록이 곧 첫 자리다). */
-function setUrl(listId: number | null, gameId: number | null, push = false): void {
+/** 도록의 갈래 ↔ 주소 값 — 주소에는 한글을 안 싣는다(공유·로그에서 깨진다). */
+const DOC_SLUG = { "유닛": "unit", "건물": "bld", "부가": "aux" } as const;
+type DocGroup = keyof typeof DOC_SLUG;
+function docFromUrl(): DocGroup | null {
+    const v = new URLSearchParams(window.location.search).get("doc");
+    const hit = (Object.keys(DOC_SLUG) as DocGroup[]).find((k) => DOC_SLUG[k] === v);
+    return hit ?? null;
+}
+function setUrl(listId: number | null, gameId: number | null, push = false, doc: DocGroup | null = null): void {
     const params = new URLSearchParams();
+    /* 도록은 목록·판과 **같은 자리를 안 쓴다** — 도록에 있는 동안 list/game은 뜻이 없다.
+       한 칸만 실어야 뒤로가기가 두 화면 사이를 오간다. */
+    if (doc !== null) {
+        const url9 = `${PATH}?doc=${DOC_SLUG[doc]}`;
+        if (push)
+            window.history.pushState(null, "", url9);
+        else
+            window.history.replaceState(null, "", url9);
+        return;
+    }
     if (listId !== null)
         params.set("list", String(listId));
     if (gameId !== null)
@@ -79,6 +98,8 @@ export default function ExtShareScreen() {
     const [err, setErr] = useState("");
     const [busy, setBusy] = useState(false);
     const [guide, setGuide] = useState(false);
+    /** 도록을 보고 있나 — 갈래(유닛·건물·그 밖)가 곧 그 페이지다. */
+    const [doc, setDoc] = useState<DocGroup | null>(docFromUrl);
     const memberOf = useCallback(() => undefined, []);
     useEffect(() => forceLightTheme(), []);
     /** 우리가 밀어 넣은 자리인가 — 닫기 버튼이 history.back()을 써도 되는지가 여기 달렸다.
@@ -86,7 +107,7 @@ export default function ExtShareScreen() {
      *  back()을 부르면 사이트 밖으로 나간다. */
     const pushed = useRef(false);
     useEffect(() => {
-        setUrl(listFromUrl(), gameFromUrl());
+        setUrl(listFromUrl(), gameFromUrl(), false, docFromUrl());
     }, []);
     /* 뒤로·앞으로 — 주소가 참이고 화면이 그것을 따른다. */
     useEffect(() => {
@@ -94,6 +115,7 @@ export default function ExtShareScreen() {
             const l = listFromUrl();
             const g = gameFromUrl();
             pushed.current = false;
+            setDoc(docFromUrl());
             setListId(l);
             setOpenId(g);
             if (l === null) {
@@ -189,6 +211,22 @@ export default function ExtShareScreen() {
         pushed.current = false;
         setUrl(id, null);
     };
+    /** 도록을 연다 — 뒤로가기가 짚을 자리를 하나 민다(판을 열 때와 같은 규약). */
+    const openDoc = (g: DocGroup): void => {
+        setDoc(g);
+        setUrl(null, null, doc === null, g);
+        if (doc === null)
+            pushed.current = true;
+    };
+    /** 도록을 닫는다 — 우리가 민 자리면 뒤로 물러서고, 받아 들어온 주소면 주소만 되돌린다. */
+    const closeDoc = (): void => {
+        if (pushed.current) {
+            window.history.back();
+            return;
+        }
+        setDoc(null);
+        setUrl(listId, null);
+    };
     const openGame = (id: number): void => {
         setOpenId(id);
         setUrl(listId, id, true);
@@ -217,26 +255,33 @@ export default function ExtShareScreen() {
     }, [games, openId, listId]);
     /* 탭 이름 — 히스토리 목록에서 판끼리 갈리려면 자리마다 이름이 달라야 한다. */
     useEffect(() => {
-        document.title = open ? `${gameTitleOf(open)} — ${TITLE}` : TITLE;
-    }, [open]);
+        document.title = doc ? `모델 도록 — ${TITLE}`
+            : open ? `${gameTitleOf(open)} — ${TITLE}` : TITLE;
+    }, [open, doc]);
     return (<div className="scr-app scr-app-fallback-scroll scr-extshare" id="scr-app">
       <div className="scr-bg-grid"/>
       <div id="scroll-root">
         <main className="scr-main scr-extshare-main">
           
           <header className="scr-crumb">
-            {(listId !== null || open) && (<button type="button" className="scr-crumb-back" onClick={() => (open ? closeGame() : goList(null))}>
+            {(listId !== null || open || doc) && (<button type="button" className="scr-crumb-back" onClick={() => (doc ? closeDoc() : open ? closeGame() : goList(null))}>
                 <ArrowLeft size={16}/>
-                <span>{open ? "목록" : "전체 목록"}</span>
+                <span>{doc ? "재생 목록" : open ? "목록" : "전체 목록"}</span>
               </button>)}
 
             <h1 className="scr-crumb-title">
-              {open ? gameTitleOf(open) : current?.name ?? (<>
+              {doc ? "모델 도록" : open ? gameTitleOf(open) : current?.name ?? (<>
                 {TITLE}
                 <span className="scr-crumb-subtitle">{SUBTITLE}</span>
               </>)}
             </h1>
             
+            {/* 도록 문 — 첫 화면 **상단 우측**이다(요청). 목록 안·판 안에서는 안 낸다:
+                거기서는 '사용법'이 그 자리를 쓰고, 도록은 목록과 무관한 자료실이다. */}
+            {listId === null && !doc && (<button type="button" className="scr-crumb-guide scr-crumb-doc" onClick={() => openDoc("유닛")}>
+                <Boxes size={13}/>
+                <span>도록</span>
+              </button>)}
             {listId !== null && (<button type="button" className="scr-crumb-guide" onClick={() => setGuide(true)}>
                 <BookOpen size={13}/>
                 <span>사용법</span>
@@ -244,7 +289,9 @@ export default function ExtShareScreen() {
           </header>
 
           
-          {listId === null && (lists === null ? <LoadingMark /> : (<div className="scr-extshare-lists">
+          {doc && <GalleryScreen group={doc} onGroup={openDoc} onClose={closeDoc}/>}
+
+          {!doc && listId === null && (lists === null ? <LoadingMark /> : (<div className="scr-extshare-lists">
                 {lists.length === 0 && (<p className="scr-extshare-empty">아직 공개된 재생 목록이 없습니다.</p>)}
                 {lists.map((l) => (<button type="button" key={l.id} className="scr-extshare-listcard" onClick={() => goList(l.id)}>
                     <span className="scr-extshare-listname">{l.name}</span>
@@ -256,7 +303,7 @@ export default function ExtShareScreen() {
               </div>))}
 
           
-          {listId !== null && current?.locked && !pass && (<form className="scr-extshare-gate" onSubmit={(e) => { e.preventDefault(); void submitPass(); }}>
+          {!doc && listId !== null && current?.locked && !pass && (<form className="scr-extshare-gate" onSubmit={(e) => { e.preventDefault(); void submitPass(); }}>
               <Lock size={22}/>
               <p>이 목록은 비밀번호가 필요합니다.</p>
               <input type="password" value={typed} autoFocus onChange={(e) => setTyped(e.target.value)} placeholder="비밀번호"/>
@@ -267,7 +314,7 @@ export default function ExtShareScreen() {
             </form>)}
 
           
-          {listId !== null && !open && (current ? !current.locked || !!pass : false) && (games === null ? <LoadingMark /> : (<div className="scr-extshare-games">
+          {!doc && listId !== null && !open && (current ? !current.locked || !!pass : false) && (games === null ? <LoadingMark /> : (<div className="scr-extshare-games">
                 {games.length === 0 && (<p className="scr-extshare-empty">이 목록에는 아직 경기가 없습니다.</p>)}
                 {games.map((g) => {
                 const mins = g.durationSeconds != null
@@ -285,7 +332,7 @@ export default function ExtShareScreen() {
               </div>))}
 
           
-          {open && (<div className="scr-extshare-detail">
+          {!doc && open && (<div className="scr-extshare-detail">
               <GameResultStory gameResult={open} team1={open.team1} team2={open.team2} result={open.result} memberOf={memberOf} extShare/>
             </div>)}
           {busy && listId !== null && games !== null && <Spinner size={16}/>}
