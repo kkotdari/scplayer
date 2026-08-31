@@ -2686,7 +2686,15 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
      · 모션 팝업 PC 가로 셋 · 모바일 세로 셋.
    개인색은 화면이 style로 내려 준다(고정 에메랄드 연두) — 칠 안 한 면이 currentColor를
    먹는 scplay 규약 그대로다. 그래서 이 파일에는 그 색이 안 적혀 있다. */
-.scr-doc { display: flex; flex-direction: column; gap: 18px; }
+.scr-doc {
+  display: flex; flex-direction: column; gap: 18px;
+  /* ★ 개인색 — **모델에만** 든다(지적: "도록의 글자들까지 에메랄드 네온이라 잘 안 보임").
+     ShapeIcon은 칠 안 한 면을 currentColor로 채우므로(scplay 규약), 이 색을 컨테이너의
+     color로 주면 **글자까지** 함께 물려받는다. 그래서 값은 변수로 두고, 실제로 color를
+     거는 자리는 아래 `.scr-doc-svg` 한 곳뿐이다 — 글자는 앱 기본색 그대로다.
+     색은 노란기가 살짝 도는 라임그린이다(지시). 고정이라 손잡이를 안 만든다. */
+  --scr-doc-own: #a9e83c;
+}
 
 .scr-doc-picks { display: flex; flex-direction: column; gap: 8px; }
 
@@ -2756,7 +2764,11 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
    이고, **scplay의 CSS가 앱 공통 CSS 뒤에 실린다**(그 패키지 README의 규약이다). 같은
    급(0,1,0)이면 뒤가 이기므로 `.scr-doc-svg`만으로는 진다 — 실측으로 팝업 SVG가 계속
    16x240이었다(1em = 16px가 그 16이다). 한 단 올리면 그 규약을 안 건드리고 이긴다. */
-.scr-doc .scr-doc-svg { width: 100%; height: auto; display: block; }
+.scr-doc .scr-doc-svg {
+  width: 100%; height: auto; display: block;
+  /* 개인색이 드는 **유일한 자리** — 위 --scr-doc-own 주석 참고. */
+  color: var(--scr-doc-own);
+}
 
 .scr-doc .scr-doc-angle .scr-doc-svg { height: 104px; }
 
@@ -2786,15 +2798,13 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 .scr-doc-popview { margin-left: auto; display: flex; align-items: center; gap: 5px; }
 
+/* 시점 알약 셋(평면·사선·입체)은 걷었다(지시) — 이 줄에는 닫기만 남는다. */
 .scr-doc-popview button {
-  font-family: inherit; font-size: 12px; color: var(--text-dim);
-  background: none; border: 1px solid var(--line); border-radius: 999px;
-  padding: 4px 10px; cursor: pointer;
+  font-family: inherit; color: var(--text-dim);
+  background: none; border: 0; border-radius: 999px; padding: 4px; cursor: pointer;
 }
 
-.scr-doc-popview button.is-on { color: var(--text); border-color: var(--point); }
-
-.scr-doc-popclose { border-color: transparent !important; padding: 4px !important; color: var(--text-dim); }
+.scr-doc-popview button:hover { color: var(--text); }
 
 /* 셋을 나란히 — PC 가로, 모바일 세로(요청). 끄는 손을 캔버스가 먹게 touch-action을 끈다
    (안 그러면 브라우저가 세로 스크롤로 채 가서 요잉이 안 돈다). */

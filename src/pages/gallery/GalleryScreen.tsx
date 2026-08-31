@@ -19,11 +19,13 @@ import {
  * 그 표가 이미 유닛/건물로 가르고 테란 → 프로토스 → 저그, 그 안에서 기본 → 고급·후반이다.
  */
 
-/** ★ 개인색은 **못 바꾼다**(요청: "개인 색은 에메랄드 연두 네온색. 변경 불가") ─────────
- *  칠하지 않은 면이 곧 개인색 자리다(scplay의 규약 — ShapeIcon은 그 면을 currentColor로
- *  채운다). 도록은 임자가 없는 화면이라 색을 고를 까닭이 없고, 무엇보다 **같은 색으로
- *  견줘야** 모델끼리의 차이가 색이 아니라 꼴로 읽힌다. 손잡이를 안 만든다. */
-const OWN_COLOR = "#3ff2a0";
+/* 개인색은 **못 바꾼다**(요청) — 도록은 임자가 없는 화면이라 색을 고를 까닭이 없고,
+   무엇보다 같은 색으로 견줘야 모델끼리의 차이가 색이 아니라 꼴로 읽힌다.
+   ★ 값과 **드는 자리**는 CSS가 쥔다(global.css의 --scr-doc-own) ─────────────────────
+     여기서 컨테이너에 style={{ color }}로 내려 주던 것을 걷었다. ShapeIcon은 칠 안 한
+     면을 currentColor로 채우는데(scplay 규약), 색을 컨테이너에 주면 그 색이 **글자까지**
+     함께 물려받는다 — 지적("도록의 글자들까지 에메랄드 네온이라 잘 안 보임")이 그것이다.
+     이제 CSS가 모델(.scr-doc-svg)에만 색을 걸고, 글자는 앱의 기본색 그대로 둔다. */
 
 type Group = ShapeGalleryItem["group"];
 type RacePick = "전체" | "테란" | "프로토스" | "저그";
@@ -34,13 +36,11 @@ type RacePick = "전체" | "테란" | "프로토스" | "저그";
 const ROTS_WIDE = [0, 45, 90, 135, 180, 225, 270, 315];
 const ROTS_NARROW = [45, 135, 225, 315];
 
-/** 모션 팝업의 시점 칸 — 자유 요잉에 피치 세 칸(평면·사선·입체)을 곁들인다.
- *  scplay의 투영은 사선(oblique)이라 피치가 이 세 칸이고 롤은 없다 — 요잉만 자유각이다. */
-const PITCHES = [
-    { key: "flat", label: "평면", flat: true, pitchView: false },
-    { key: "obl", label: "사선", flat: false, pitchView: false },
-    { key: "iso", label: "입체", flat: false, pitchView: true },
-] as const;
+/* (걷어냄) 시점 칸 버튼 셋 — 평면·사선·입체를 고르던 알약이다(지시: "이 버튼들은 피칭용인가
+   본데 제거하고 사선 기본으로"). 도록에서 볼 것은 **모델의 꼴**이고 그것은 사선 한 칸이
+   가장 잘 보여 준다 — 평면은 위에서 눌러 높이를 지우고, 입체는 지도에 맞춘 각이라 도록
+   에서는 오히려 낯설다. 고를 것이 하나뿐이면 버튼도 없는 편이 낫다.
+   요잉(좌우 드래그)은 그대로 자유각이다 — 걷은 것은 피치뿐이다. */
 
 /** 지금 화면이 넓은가 — 각도 칸 수가 이 값으로 갈린다(레이아웃만이 아니라 **그리는 수**가
  *  달라지므로 CSS가 아니라 여기서 가른다). */
@@ -131,11 +131,9 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     const wide = useWide();
     const t = useClock(true);
     const [yaw, setYaw] = useState(45);
-    const [pitch, setPitch] = useState(1);
     const drag = useRef<{ x: number; yaw: number } | null>(null);
     const cuts = cutsAt(item.kind, t);
     const pk = poseCutsOf(item.kind);
-    const view = PITCHES[pitch];
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
        요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다. */
     const onDown = (e: React.PointerEvent): void => {
@@ -160,15 +158,10 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     ];
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-          <div className="scr-doc-popbox" style={{ color: OWN_COLOR }}>
+          <div className="scr-doc-popbox">
             <header className="scr-doc-pophead">
               <h3>{item.label}</h3>
               <div className="scr-doc-popview">
-                {PITCHES.map((p, i) => (
-                  <button type="button" key={p.key} className={i === pitch ? "is-on" : ""} onClick={() => setPitch(i)}>
-                    {p.label}
-                  </button>
-                ))}
                 <button type="button" className="scr-doc-popclose" onClick={onClose} aria-label="닫기"><X size={16} /></button>
               </div>
             </header>
@@ -185,8 +178,6 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                     kind={item.kind}
                     rotDeg={yaw}
                     pose={c.cut}
-                    flat={view.flat}
-                    pitchView={view.pitchView}
                     fit
                     className="scr-doc-svg"
                   />
@@ -285,7 +276,7 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
             </div>
           </div>
           {rows.length === 0 && <p className="scr-doc-empty">해당하는 모델이 없습니다.</p>}
-          <div className="scr-doc-list" style={{ color: OWN_COLOR }}>
+          <div className="scr-doc-list">
             {rows.map((it) => (
               <GalleryRow key={it.kind} item={it} rots={rots} wide={wide} onMotion={() => setOpen(it)} />
             ))}
