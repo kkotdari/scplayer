@@ -2692,8 +2692,8 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
      ShapeIcon은 칠 안 한 면을 currentColor로 채우므로(scplay 규약), 이 색을 컨테이너의
      color로 주면 **글자까지** 함께 물려받는다. 그래서 값은 변수로 두고, 실제로 color를
      거는 자리는 아래 `.scr-doc-svg` 한 곳뿐이다 — 글자는 앱 기본색 그대로다.
-     색은 노란기가 살짝 도는 라임그린이다(지시). 고정이라 손잡이를 안 만든다. */
-  --scr-doc-own: #a9e83c;
+     색은 지시받은 값 그대로다. 고정이라 손잡이를 안 만든다. */
+  --scr-doc-own: #64ff64;
 }
 
 .scr-doc-picks { display: flex; flex-direction: column; gap: 8px; }
