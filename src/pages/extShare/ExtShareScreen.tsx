@@ -139,7 +139,13 @@ function depthOf(): number {
    경로만 갈아 끼우고 쿼리는 손대지 않고 얹는다 — 안 그러면 첫 replaceState 한 번에
    옵션이 통째로 날아간다. */
 function writeUrl(r: Route, push: boolean): void {
-    const url = pathOf(r) + window.location.search;
+    /* ★ **해시도 그대로 얹는다**(지적: "#diag 붙여서 치면 없어지고 일반 주소로 가") —
+       쿼리를 지키는 것과 똑같은 까닭이다. 재생기의 진단 오버레이는 주소 끝의 `#diag`로
+       켜지는데, 뜨자마자 도는 첫 replaceState가 경로 + 쿼리만으로 주소를 다시 써서
+       해시를 통째로 지웠다. 그래서 폰에서 진단을 켤 길이 아예 없었다.
+       ★ 여기서 지키지 않으면 다른 데서 살릴 방법이 없다 — 주소를 다시 쓰는 자리가
+         이 함수 하나뿐이라, 이 한 줄이 곧 '주소에서 무엇을 지키나'의 전부다. */
+    const url = pathOf(r) + window.location.search + window.location.hash;
     if (push)
         window.history.pushState({ scr: depthOf() + 1 }, "", url);
     else
