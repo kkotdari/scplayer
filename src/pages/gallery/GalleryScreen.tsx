@@ -135,7 +135,9 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     const cuts = cutsAt(item.kind, t);
     const pk = poseCutsOf(item.kind);
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
-       요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다. */
+       요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다.
+       ★ 부호는 **빼기**다(지적: "드래그 → 요잉 방향 반대로") — 손으로 만지는 것은 카메라가
+         아니라 **몸**이라, 오른쪽으로 끌면 몸의 오른쪽 면이 나를 향해 돌아와야 한다. */
     const onDown = (e: React.PointerEvent): void => {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         drag.current = { x: e.clientX, yaw };
@@ -143,7 +145,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     const onMove = (e: React.PointerEvent): void => {
         if (!drag.current)
             return;
-        setYaw(drag.current.yaw + (e.clientX - drag.current.x) * 0.6);
+        setYaw(drag.current.yaw - (e.clientX - drag.current.x) * 0.6);
     };
     const onUp = (): void => { drag.current = null; };
     useEffect(() => {
