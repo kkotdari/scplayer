@@ -6,6 +6,7 @@ import { isUnregisteredSlot, unregisteredSlotLabel } from "../../constants/unreg
 import { cx } from "../../utils/format";
 import { normalizeSearchText } from "../../utils/memberSearch";
 import type { Member, GameResultSlot, GameOutcome } from "../../types";
+import { isMeleeGame } from "../../utils/lineup";
 export type Outcome = "win" | "loss" | "draw" | "notHeld";
 export function outcomeFor(side: "team1" | "team2", result: GameOutcome): Outcome {
     if (result === "draw")
@@ -14,13 +15,10 @@ export function outcomeFor(side: "team1" | "team2", result: GameOutcome): Outcom
         return "notHeld";
     return side === result ? "win" : "loss";
 }
-export function isMeleeGame(g: {
-    matchType?: string | null;
-    team1: GameResultSlot[];
-    team2: GameResultSlot[];
-}): boolean {
-    return g.matchType === "0101" && g.team1.length + g.team2.length > 2;
-}
+/* 개인전 판정은 utils/lineup 하나가 낸다 — 여기 있던 같은 식을 그리로 옮기고 이름만
+   그대로 내보낸다(부르는 자리가 여럿이라 import 경로를 안 흔든다). 판정이 두 벌이면
+   화면과 제목이 갈린다. */
+export { isMeleeGame };
 export function meleeLineup(team1: GameResultSlot[], team2: GameResultSlot[], memberOf: (id: string) => Member | undefined): string {
     const all = [...team1, ...team2];
     return all.map((s) => resolveSlotName(s, all, memberOf)).join(" vs ");
