@@ -2723,6 +2723,9 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 .scr-doc-pickrow button:hover { color: var(--text); border-color: var(--point); }
 
 .scr-doc-pickrow button.is-on { color: var(--text); border-color: var(--point); background: rgba(230, 162, 62, 0.12); }
+/* 라이트 테마의 활성 버튼은 푸른빛(요청) — 주황 포인트 대신 임자색 파랑 계열. */
+.scr-light-theme .scr-doc-pickrow button:hover { border-color: #2b62e8; }
+.scr-light-theme .scr-doc-pickrow button.is-on { color: #1d3f9a; border-color: #2b62e8; background: rgba(43, 98, 232, 0.12); }
 
 /* 종족 줄은 갈래 줄보다 한 단 작다 — 위가 페이지를 가르고 아래는 그 안을 거른다. */
 .scr-doc-pickrow.is-race button { font-size: 12px; padding: 5px 12px; }
