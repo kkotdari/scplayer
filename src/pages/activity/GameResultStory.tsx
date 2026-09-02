@@ -27,14 +27,18 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
     const detailClose = useContext(GameDetailCloseContext);
     const linkQuery = useMemo(() => {
         const q = new URLSearchParams(window.location.search);
-        if (q.get("group") !== "gameResult")
-            return null;
+        /* 장면 쿼리는 경로가 가리키는 **열린 경기**의 것이다 — 이 화면은 한 번에 한
+           판만 띄우므로 group/item 없이도 헷갈릴 데가 없다(지적: "쓸데없는 파라미터").
+           옛 링크(group=gameResult&item=…)는 그대로 받되, 다른 판을 가리키면 버린다. */
         const gameParam = q.get("item");
-        if (!gameParam)
-            return null;
-        if (gameParam !== gameResult.matchNo && Number(gameParam) !== gameResult.id)
-            return null;
-        return q;
+        if (q.get("group") === "gameResult" || gameParam) {
+            if (q.get("group") !== "gameResult" || !gameParam)
+                return null;
+            if (gameParam !== gameResult.matchNo && Number(gameParam) !== gameResult.id)
+                return null;
+            return q;
+        }
+        return ["t", "s", "z", "cx", "cy", "a", "tr"].some((k) => q.has(k)) ? q : null;
     }, []);
     const initialSec = useMemo(() => {
         const v = Number(linkQuery?.get("t"));
@@ -195,7 +199,6 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         shareNode={(
           <SceneShareButton
             clockKey={String(gameResult.matchNo || gameResult.id)}
-            item={String(gameResult.matchNo || gameResult.id)}
             title={`${mapName || "경기"} 장면`}
           />
         )}
