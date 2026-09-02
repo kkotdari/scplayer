@@ -4,6 +4,7 @@ import { ReplayModule, PLAYBACK_ZOOM_MAX, type MotionBase } from "scplay";
 import { api } from "../../api/client";
 import RosterSide, { isMeleeGame, outcomeFor, resolveSlotName } from "./GameResultSides";
 import Avatar from "../../components/common/Avatar";
+import SceneShareButton from "./SceneShareButton";
 import { GameDetailCloseContext } from "./gameDetailClose";
 import { useReplayMap } from "scplay";
 import { cleanMapName } from "../../utils/mapName";
@@ -191,6 +192,13 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         initialSec={initialSec} initialSpeed={initialSpeed}
         initialView={initialView} initialTrack={initialTrack}
         clockKey={String(gameResult.matchNo || gameResult.id)}
+        shareNode={(
+          <SceneShareButton
+            clockKey={String(gameResult.matchNo || gameResult.id)}
+            item={String(gameResult.matchNo || gameResult.id)}
+            title={`${mapName || "경기"} 장면`}
+          />
+        )}
         onDetailClose={detailClose ?? undefined}
         soleView={soleViewNow}
         loadUnitTracks={() => api.getGameUnitTracks(gameResult.id)
