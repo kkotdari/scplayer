@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Play, X } from "lucide-react";
 import {
-    SHAPE_GALLERY, ShapeIcon, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf,
+    SHAPE_GALLERY, ShapeIcon, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
     type ShapeGalleryItem,
 } from "scplay";
 
@@ -33,6 +33,18 @@ type RacePick = "전체" | "테란" | "프로토스" | "저그";
 /** 각도 칸 — PC는 0도부터 45도씩 여덟 방, 좁은 화면은 네 방이다(요청).
  *  네 방을 45·135·225·315로 잡는 것도 요청이다: 0/90/180/270은 정면·측면이라 서로
  *  가장 안 갈리는 넷이고, 45도씩 비낀 넷이 앞뒤·좌우를 한 번에 보여 준다. */
+/** 크기 보정 모드(요청: 도록 주소에 ?cal을 붙이면 격자 바닥 위에 **게임 12배 줌의 실제 크기**로
+ *  45도 한 컷씩만) — 값이 1이면 이 기기 폭(최대 640px)을 128타일 지도로 보고 12배 한 타일 px를
+ *  셈하고, 숫자를 주면 그것이 곧 한 타일의 px다(예: ?cal=36). 크기 = shapeMapTiles(kind) × 타일 px
+ *  — 지도가 스프라이트 상자(16단위)를 앉히는 그 식이다. 자세는 지도 기본(2D top)이다. */
+function calTilePx(): number | null {
+  if (typeof window === "undefined") return null;
+  const v = new URLSearchParams(window.location.search).get("cal");
+  if (v === null) return null;
+  const n = Number(v);
+  if (Number.isFinite(n) && n > 1) return n;
+  return (Math.min(window.innerWidth, 640) / 128) * 12;
+}
 const ROTS_WIDE = [0, 45, 90, 135, 180, 225, 270, 315];
 const ROTS_NARROW = [45, 135, 225, 315];
 
@@ -249,6 +261,7 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
     group: Group; onGroup: (g: Group) => void; onClose: () => void;
 }) {
     const wide = useWide();
+    const calPx = useMemo(() => calTilePx(), []);
     const [race, setRace] = useState<RacePick>("전체");
     const [open, setOpen] = useState<ShapeGalleryItem | null>(null);
     const rots = wide ? ROTS_WIDE : ROTS_NARROW;
@@ -278,11 +291,32 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
             </div>
           </div>
           {rows.length === 0 && <p className="scr-doc-empty">해당하는 모델이 없습니다.</p>}
+          {calPx !== null ? (
+            /* 크기 보정 모드 — 격자 바닥(한 칸 = 한 타일) 위에 실제 크기·45도 한 컷. */
+            <div className="scr-doc-list scr-doc-cal" style={{ ["--tile" as string]: `${calPx}px` }}>
+              <p className="scr-doc-calnote">타일 {calPx.toFixed(1)}px · 12배 · 45°</p>
+              {rows.map((it) => {
+                const px = shapeMapTiles(it.kind) * calPx;
+                return (
+                  <section key={it.kind} className="scr-doc-item scr-doc-calitem">
+                    <header className="scr-doc-itemhead"><h3>{it.label}</h3>
+                      <span className="scr-doc-race">{(px / calPx).toFixed(2)}타일</span></header>
+                    <div className="scr-doc-calfloor">
+                      <div className="scr-doc-calbox" style={{ width: px, height: px }}>
+                        <ShapeIcon kind={it.kind} rotDeg={45} flat className="scr-doc-svg scr-doc-calsvg" />
+                      </div>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          ) : (
           <div className="scr-doc-list">
             {rows.map((it) => (
               <GalleryRow key={it.kind} item={it} rots={rots} wide={wide} onMotion={() => setOpen(it)} />
             ))}
           </div>
+          )}
           {open && <MotionPopup item={open} onClose={() => setOpen(null)} />}
           <button type="button" className="scr-doc-back" onClick={onClose}>
             <ArrowLeft size={16} /><span>돌아가기</span>
