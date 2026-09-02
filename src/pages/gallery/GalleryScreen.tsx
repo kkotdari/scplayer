@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, X } from "lucide-react";
 import {
     SHAPE_GALLERY, ShapeIcon, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
@@ -37,13 +37,18 @@ type RacePick = "전체" | "테란" | "프로토스" | "저그";
  *  45도 한 컷씩만) — 값이 1이면 이 기기 폭(최대 640px)을 128타일 지도로 보고 12배 한 타일 px를
  *  셈하고, 숫자를 주면 그것이 곧 한 타일의 px다(예: ?cal=36). 크기 = shapeMapTiles(kind) × 타일 px
  *  — 지도가 스프라이트 상자(16단위)를 앉히는 그 식이다. 자세는 지도 기본(2D top)이다. */
-function calTilePx(): number | null {
+function calTilePx(docWidth: number): number | null {
   if (typeof window === "undefined") return null;
-  const v = new URLSearchParams(window.location.search).get("cal");
+  const q = new URLSearchParams(window.location.search);
+  const v = q.get("cal");
   if (v === null) return null;
   const n = Number(v);
   if (Number.isFinite(n) && n > 1) return n;
-  return (Math.min(window.innerWidth, 640) / 128) * 12;
+  /* 실제 지도의 타일 px와 같은 식(재지적: 격자가 실제 맵 타일 크기에 맞아야) — 지도는 화면 내용
+     폭에 꽉 차게 서고 한 타일 = 지도 폭 ÷ 지도 타일 수(기본 128, ?mw=96처럼 바꿀 수 있다).
+     12배 줌은 그 타일의 12배다. 이 도록 화면의 내용 폭이 곧 지도가 서는 폭이다. */
+  const mw = Number(q.get("mw")) || 128;
+  return (docWidth / mw) * 12;
 }
 const ROTS_WIDE = [0, 45, 90, 135, 180, 225, 270, 315];
 const ROTS_NARROW = [45, 135, 225, 315];
@@ -261,7 +266,14 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
     group: Group; onGroup: (g: Group) => void; onClose: () => void;
 }) {
     const wide = useWide();
-    const calPx = useMemo(() => calTilePx(), []);
+    const docRef = useRef<HTMLDivElement | null>(null);
+    const [docW, setDocW] = useState(0);
+    useLayoutEffect(() => {
+      const el = docRef.current;
+      if (!el) return;
+      setDocW(el.clientWidth);
+    }, []);
+    const calPx = useMemo(() => (docW > 0 ? calTilePx(docW) : null), [docW]);
     const [race, setRace] = useState<RacePick>("전체");
     const [open, setOpen] = useState<ShapeGalleryItem | null>(null);
     const rots = wide ? ROTS_WIDE : ROTS_NARROW;
@@ -273,7 +285,7 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
        종족을 들고 넘어가면 빈 화면이 나온다. */
     useEffect(() => { setRace("전체"); }, [group]);
     return (
-        <div className="scr-doc">
+        <div className="scr-doc" ref={docRef}>
           <div className="scr-doc-picks">
             <div className="scr-doc-pickrow" role="group" aria-label="갈래">
               {GROUPS.map((g) => (
