@@ -2413,7 +2413,7 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 
 .scr-fx-dust {
-  position: absolute; width: 7%; aspect-ratio: 1; pointer-events: none;
+  position: absolute; width: 3.5%; aspect-ratio: 1; pointer-events: none;   /* 반짝임 크기 절반(요청) 7% → 3.5% */
   transform: translate(-50%, -50%);
   animation: scr-fx-twinkle 1.7s ease-in-out infinite;
 }
