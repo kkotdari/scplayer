@@ -145,7 +145,18 @@ function writeUrl(r: Route, push: boolean): void {
        해시를 통째로 지웠다. 그래서 폰에서 진단을 켤 길이 아예 없었다.
        ★ 여기서 지키지 않으면 다른 데서 살릴 방법이 없다 — 주소를 다시 쓰는 자리가
          이 함수 하나뿐이라, 이 한 줄이 곧 '주소에서 무엇을 지키나'의 전부다. */
-    const url = pathOf(r) + window.location.search + window.location.hash;
+    /* 장면 쿼리(t·s·z·cx·cy·a·tr)는 **그 판 화면의 것**이다(지적: "가이드에 왜 파라미터가
+       붙지") — 다른 화면으로 옮길 때(push)는 떼어 낸다. 재생기 옵션(perf·dpr·hide·gap·
+       noshadow)은 화면과 무관하니 그대로 얹는다. 제자리 고쳐쓰기(replace)는 첫 진입의
+       공유 링크를 스토리가 아직 못 읽었을 수 있어 손대지 않는다. */
+    let search = window.location.search;
+    if (push && search) {
+        const q = new URLSearchParams(search);
+        for (const k of ["t", "s", "z", "cx", "cy", "a", "tr"]) q.delete(k);
+        const qs = q.toString();
+        search = qs ? `?${qs}` : "";
+    }
+    const url = pathOf(r) + search + window.location.hash;
     if (push)
         window.history.pushState({ scr: depthOf() + 1 }, "", url);
     else
