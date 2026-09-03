@@ -22,8 +22,13 @@ export default function SceneShareButton({ clockKey, title }: {
     const v = playbackViewOf.get(clockKey);
     if (v) {
       if (v.z > 1.001) q.set("z", v.z.toFixed(2));
-      q.set("cx", v.cx.toFixed(3));
-      q.set("cy", v.cy.toFixed(3));
+      /* 가운데 자리도 기본값이면 안 싣는다(지적: stargayte처럼 기본값은 빼기) — 1배에서는 팬이 없어
+         가운데가 뜻이 없고, 확대해도 지도 한가운데(0.5, 0.5)면 받는 쪽 기본값과 같다. */
+      const centered = Math.abs(v.cx - 0.5) < 0.0005 && Math.abs(v.cy - 0.5) < 0.0005;
+      if (v.z > 1.001 && !centered) {
+        q.set("cx", v.cx.toFixed(3));
+        q.set("cy", v.cy.toFixed(3));
+      }
       if (Math.round(v.deg) !== 90) q.set("a", String(Math.round(v.deg)));
     }
     const tr = playbackTrackOf.get(clockKey);
