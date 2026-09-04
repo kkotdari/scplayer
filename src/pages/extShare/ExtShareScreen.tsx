@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BookOpen, Lock, Play, Shapes } from "lucide-react";
+import { ArrowLeft, Lock, Play, Shapes } from "lucide-react";
 import GameResultStory from "../activity/GameResultStory";
 import GuideScreen from "../guide/GuideScreen";
 import GalleryScreen from "../gallery/GalleryScreen";
@@ -324,16 +324,12 @@ export default function ExtShareScreen() {
               </>)}
             </h1>
             
-            {/* 도록 문 — 첫 화면 **상단 우측**이다(요청). 목록 안·판 안에서는 안 낸다:
-                거기서는 '사용법'이 그 자리를 쓰고, 도록은 목록과 무관한 자료실이다. */}
+            {/* 도록 문 — 첫 화면 **상단 우측**이다(요청). 목록 안·판 안에서는 안 낸다: 도록은 목록과 무관한 자료실이다. */}
             {listId === null && !doc && (<button type="button" className="scr-crumb-guide scr-crumb-doc" onClick={() => openDoc("유닛")}>
                 <Shapes size={13}/>
                 <span>도록</span>
               </button>)}
-            {listId !== null && (<button type="button" className="scr-crumb-guide" onClick={openGuide}>
-                <BookOpen size={13}/>
-                <span>사용법</span>
-              </button>)}
+            {/* 사용법 문은 브레드크럼에서 걷었다(요청) — 재생기 아래 장면 공유 버튼 줄에 있다(GameResultStory onGuide). */}
           </header>
 
           
@@ -381,7 +377,7 @@ export default function ExtShareScreen() {
 
           
           {!doc && open && (<div className="scr-extshare-detail">
-              <GameResultStory gameResult={open} team1={open.team1} team2={open.team2} result={open.result} memberOf={memberOf} extShare/>
+              <GameResultStory gameResult={open} team1={open.team1} team2={open.team2} result={open.result} memberOf={memberOf} extShare onGuide={openGuide}/>
             </div>)}
           {busy && listId !== null && games !== null && <Spinner size={16}/>}
         </main>
