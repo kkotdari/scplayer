@@ -10,4 +10,3 @@ dist/
 # 박고 `github:kkotdari/scplay`로 걸려 있어, 빌드할 때마다 그쪽 main의 최신 커밋을
 # 가져가는 것이 이 저장소의 배포 방식이다. 잠금 파일을 담으면 그 자리 커밋이 얼어붙어
 # scplay를 배포해도 여기가 안 따라온다.
-package-lock.json
