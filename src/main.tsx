@@ -6,7 +6,7 @@ import "scplay/styles.css";
 import { setReplayChrome, setReplayMapFetcher } from "scplay";
 import ExtShareScreen from "./pages/extShare/ExtShareScreen";
 import Avatar from "./components/common/Avatar";
-import { showToast } from "./components/common/Toast";
+import ToastHost, { showToast } from "./components/common/Toast";
 import { api } from "./api/client";
 
 /* scplay에 앱의 것을 꽂는다 — 패키지는 API 주소도 프사도 토스트도 모른다. */
@@ -17,5 +17,8 @@ setReplayChrome({ Avatar, toast: (text, opts) => { showToast(text, opts as never
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ExtShareScreen />
+    {/* 토스트 그릇 — showToast는 목록에 넣을 뿐이라 이것이 있어야 화면에 뜬다(지적: 모바일 3D 버튼 토스트가 안 뜸).
+        body에 포털로 붙고 전체화면은 documentElement라 전체화면 안에서도 보인다. */}
+    <ToastHost />
   </StrictMode>,
 );
