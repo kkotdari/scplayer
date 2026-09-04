@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Lock, Play, Shapes } from "lucide-react";
 import GameResultStory from "../activity/GameResultStory";
-import GuideScreen from "../guide/GuideScreen";
 import GalleryScreen from "../gallery/GalleryScreen";
 import { LoadingMark, Spinner } from "../../components/common/Feedback";
 import { api, setExtShareContext } from "../../api/client";
@@ -66,9 +65,8 @@ type Route = {
     list: number | null;
     game: number | null;
     doc: DocGroup | null;
-    guide: boolean;
 };
-const HOME: Route = { list: null, game: null, doc: null, guide: false };
+const HOME: Route = { list: null, game: null, doc: null };
 function routeFromUrl(): Route {
     const p = window.location.pathname;
     if (!p.startsWith(PATH))
@@ -77,10 +75,6 @@ function routeFromUrl(): Route {
     const r: Route = { ...HOME };
     for (let i = 0; i < seg.length; i += 1) {
         const head = seg[i];
-        if (head === "guide") {
-            r.guide = true;
-            continue;
-        }
         const arg = seg[i + 1];
         if (arg === undefined)
             break;
@@ -96,7 +90,7 @@ function routeFromUrl(): Route {
     /* 어긋난 주소는 손질한다 — 판은 목록 안에서만 뜻이 있고, 도록은 목록·판과 같은 자리를
        안 쓴다(도록에 있는 동안 list/game은 뜻이 없다). */
     if (r.doc !== null)
-        return { list: null, game: null, doc: r.doc, guide: r.guide };
+        return { list: null, game: null, doc: r.doc };
     if (r.list === null)
         r.game = null;
     return r;
@@ -112,12 +106,10 @@ function pathOf(r: Route): string {
         if (r.list !== null && r.game !== null)
             p += `/games/${r.game}`;
     }
-    return r.guide ? `${p}/guide` : p;
+    return p;
 }
 /** 한 단계 위 — 뒤로 물러설 자리가 없을 때 닫기가 갈 곳이다. */
 function parentOf(r: Route): Route {
-    if (r.guide)
-        return { ...r, guide: false };
     if (r.doc !== null)
         return HOME;
     if (r.game !== null)
@@ -172,7 +164,7 @@ export default function ExtShareScreen() {
     /* 화면은 **하나의 값**이다 — 목록·판·도록·사용법을 따로 든 상태 넷이 서로 어긋나던
        것을 한 자리로 모은다(그 어긋남이 곧 닫기·뒤로가기가 딴 데로 가던 까닭이다). */
     const [route, setRoute] = useState<Route>(routeFromUrl);
-    const { list: listId, game: openId, doc, guide } = route;
+    const { list: listId, game: openId, doc } = route;
     const memberOf = useCallback(() => undefined, []);
     useEffect(() => forceLightTheme(), []);
     /** 화면을 옮긴다 — 상태와 주소를 한 손으로 민다. */
@@ -289,8 +281,7 @@ export default function ExtShareScreen() {
     /** 도록을 연다. 갈래를 갈아 끼우는 것(유닛↔건물)은 같은 화면 안이라 자리를 안 쌓는다. */
     const openDoc = (g: DocGroup): void => { nav({ ...HOME, doc: g }, doc === null); };
     const openGame = (id: number): void => { nav({ ...route, game: id }, true); };
-    /** 사용법 — 이제 제 마디(.../guide)를 가진다. 그래서 뒤로가기가 이것부터 닫는다. */
-    const openGuide = (): void => { nav({ ...route, guide: true }, true); };
+    /* 사용법은 재생기(scplay)가 제 버튼·덮개로 연다(요청: 공통) — 이 앱에는 그 소스가 없다. */
     const open = openId === null ? null : games?.find((g) => g.id === openId) ?? null;
     /* 주소가 가리키는 판이 이 목록에 없다 — 지워졌거나 남의 목록의 번호다. 조용히 목록으로
        돌리되 주소도 함께 턴다(안 그러면 뒤로가기가 없는 판을 다시 짚는다). */
@@ -302,10 +293,9 @@ export default function ExtShareScreen() {
     }, [games, openId, nav]);
     /* 탭 이름 — 히스토리 목록에서 판끼리 갈리려면 자리마다 이름이 달라야 한다. */
     useEffect(() => {
-        document.title = guide ? `사용법 — ${TITLE}`
-            : doc ? `모델 도록 — ${TITLE}`
-                : open ? `${gameTitleOf(open)} — ${TITLE}` : TITLE;
-    }, [open, doc, guide]);
+        document.title = doc ? `모델 도록 — ${TITLE}`
+            : open ? `${gameTitleOf(open)} — ${TITLE}` : TITLE;
+    }, [open, doc]);
     return (<div className="scr-app scr-app-fallback-scroll scr-extshare" id="scr-app">
       <div className="scr-bg-grid"/>
       <div id="scroll-root">
@@ -329,7 +319,7 @@ export default function ExtShareScreen() {
                 <Shapes size={13}/>
                 <span>도록</span>
               </button>)}
-            {/* 사용법 문은 브레드크럼에서 걷었다(요청) — 재생기 아래 장면 공유 버튼 줄에 있다(GameResultStory onGuide). */}
+            {/* 사용법 문은 브레드크럼에서 걷었다(요청) — 재생기(scplay)가 공유 버튼 옆에 제 버튼을 낸다. */}
           </header>
 
           
@@ -377,13 +367,10 @@ export default function ExtShareScreen() {
 
           
           {!doc && open && (<div className="scr-extshare-detail">
-              <GameResultStory gameResult={open} team1={open.team1} team2={open.team2} result={open.result} memberOf={memberOf} extShare onGuide={openGuide}/>
+              <GameResultStory gameResult={open} team1={open.team1} team2={open.team2} result={open.result} memberOf={memberOf} extShare/>
             </div>)}
           {busy && listId !== null && games !== null && <Spinner size={16}/>}
         </main>
-        {guide && (<div className="scr-extshare-guide">
-            <GuideScreen onClose={goBack}/>
-          </div>)}
       </div>
     </div>);
 }

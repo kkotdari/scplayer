@@ -1,4 +1,3 @@
-import { BookOpen } from "lucide-react";
 import React, { useCallback, useContext, useMemo, useState, type MouseEvent, type PointerEvent } from "react";
 import { formatWhen } from "../../utils/date";
 import { ReplayModule, PLAYBACK_ZOOM_MAX, type MotionBase } from "scplay";
@@ -12,7 +11,7 @@ import { cleanMapName } from "../../utils/mapName";
 import { cx } from "../../utils/format";
 import { normalizeSearchText } from "../../utils/memberSearch";
 import type { GameResult, GameResultSlot, Member } from "../../types";
-export default function GameResultStory({ gameResult, team1, team2, result, memberOf, highlightMemberIds, highlightTerms, active = true, menu, extShare = false, onGuide, }: {
+export default function GameResultStory({ gameResult, team1, team2, result, memberOf, highlightMemberIds, highlightTerms, active = true, menu, extShare = false, }: {
     gameResult: GameResult;
     team1: GameResultSlot[];
     team2: GameResultSlot[];
@@ -23,8 +22,6 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
     menu?: import("react").ReactNode;
     active?: boolean;
     extShare?: boolean;
-    /** 사용법 문(요청: 브레드크럼이 아니라 장면 공유 버튼 줄에) — 주면 공유 버튼 옆에 버튼을 낸다. */
-    onGuide?: () => void;
 }) {
     const grid = useReplayMap(gameResult.mapHash);
     const detailClose = useContext(GameDetailCloseContext);
@@ -200,18 +197,10 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         initialView={initialView} initialTrack={initialTrack}
         clockKey={String(gameResult.matchNo || gameResult.id)}
         shareNode={(
-          <span className="scr-scene-btns">
-            <SceneShareButton
-              clockKey={String(gameResult.matchNo || gameResult.id)}
-              title={`${mapName || "경기"} 장면`}
-            />
-            {onGuide && (
-              <button type="button" className="scr-kakao-share-btn scr-scene-guide-btn" onClick={onGuide} aria-label="사용법">
-                <BookOpen />
-                사용법
-              </button>
-            )}
-          </span>
+          <SceneShareButton
+            clockKey={String(gameResult.matchNo || gameResult.id)}
+            title={`${mapName || "경기"} 장면`}
+          />
         )}
         onDetailClose={detailClose ?? undefined}
         soleView={soleViewNow}
