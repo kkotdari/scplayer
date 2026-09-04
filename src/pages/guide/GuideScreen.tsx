@@ -214,7 +214,11 @@ export default function GuideScreen({ onClose }: {
 
           <span className="scr-guide-group">지도</span>
           <K keys={["W", "A", "S", "D"]} title="지도 움직이기" desc="누르고 있는 동안 계속 밀립니다."/>
-          <K keys={["I", "O"]} title="확대 / 축소" desc="I는 in(확대), O는 out(축소). 한 번에 한 칸씩, 마우스 휠로도 됩니다."/>
+          <K keys={["]", "["]} title="확대 / 축소" desc="]가 확대, [가 축소. 한 번에 한 칸씩, 마우스 휠로도 됩니다."/>
+
+          <span className="scr-guide-group">장면</span>
+          <K keys={["O"]} title="장면 스크랩" desc="지금 장면을 제목 붙여 담습니다."/>
+          <K keys={["P"]} title="장면 공유" desc="지금 장면의 링크를 공유 시트로 보냅니다(안 되면 링크 복사)."/>
 
           <span className="scr-guide-group">보기</span>
           <K keys={["V"]} title="평면 ↔ 입체"/>
