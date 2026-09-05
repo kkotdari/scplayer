@@ -54,13 +54,13 @@ export default function SceneShareButton({ clockKey, title }: {
     }
     window.setTimeout(() => setDone(null), 1800);
   };
-  /* 단축키 P(요청) — 재생기의 키 판(scplay)은 O·P를 안 쓰므로 여기서 창에 직접 듣는다. 글을 치는 칸·수식키(Ctrl+P는
-     인쇄)에서는 안 듣고, 한글 자판에서도 듣도록 키 자리(e.code)로 본다. 최신 onClick은 ref로 든다(의존 목록 없이). */
+  /* 단축키 X(요청: 키 매핑 변경 — 스크랩/공유 z/x; 옛 P) — 재생기의 키 판(scplay)은 Z·X를 안 쓰므로 여기서 창에 직접
+     듣는다. 글을 치는 칸·수식키에서는 안 듣고, 한글 자판에서도 듣도록 키 자리(e.code)로 본다. 최신 onClick은 ref로 든다. */
   const onClickRef = useRef(onClick);
   onClickRef.current = onClick;
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.code !== "KeyP" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      if (e.code !== "KeyX" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       e.preventDefault();
