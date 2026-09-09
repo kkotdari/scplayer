@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, X } from "lucide-react";
 import {
     SHAPE_GALLERY, ShapeIcon, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
-    type ShapeGalleryItem,
+    shapeFitBox, type ShapeGalleryItem,
 } from "scplay";
 
 /* 도록(모델 자료실) — 재생기가 쓰는 모델을 한 자리에서 본다(요청).
@@ -148,21 +148,49 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     const wide = useWide();
     const t = useClock(true);
     const [yaw, setYaw] = useState(45);
-    const drag = useRef<{ x: number; yaw: number } | null>(null);
+    const drag = useRef<{ x: number; y: number; yaw: number; on: boolean; id: number } | null>(null);
     const cuts = cutsAt(item.kind, t);
     const pk = poseCutsOf(item.kind);
+    /* ★ 창은 세 칸이 **하나**다(지적: "모션컷에 따라 모델 확대율이 달라짐") ───────────
+       ShapeIcon의 fit은 그 컷의 잉크에 창을 맞추므로, 팔을 뻗는 액션 컷은 창이 넓어지며
+       몸이 작아지고 대기 컷은 커진다 — 나란히 놓으면 셋의 배율이 제각각이다. scplay의
+       shapeFitBox로 그 종류의 **모든 컷을 훑은 한 상자**를 얻어 세 칸에 같이 내린다.
+       각(요잉)은 22.5도 칸으로 끊어 잰다 — 모델을 굽는 칸이 그 칸이라, 드래그 중에도
+       상자가 이미 구운 면을 다시 훑을 뿐이라 거의 공짜다(그리고 상자가 매 프레임
+       미세하게 떨지 않는다). */
+    const yawQ = Math.round(yaw / 22.5) * 22.5;
+    const fitBox = useMemo(() => shapeFitBox(item.kind, { rotDeg: yawQ }), [item.kind, yawQ]);
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
        요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다.
        ★ 부호는 **빼기**다(지적: "드래그 → 요잉 방향 반대로") — 손으로 만지는 것은 카메라가
          아니라 **몸**이라, 오른쪽으로 끌면 몸의 오른쪽 면이 나를 향해 돌아와야 한다. */
+    /* ★ 세로 스크롤을 살려 둔다(지적: "세로 스크롤이 안됨") ────────────────────────────
+       모바일에서는 세 칸이 세로로 쌓여 이 무대가 팝업의 거의 전부라, 여기서 스크롤이
+       안 먹으면 창을 아예 못 내린다. 원인은 둘이었다 — CSS의 touch-action: none(브라우저
+       스크롤을 통째로 끈다. 이제 pan-y다)과, **누르자마자** 포인터를 잡아채던 이 함수다.
+       이제 가로로 6px 넘게, 그리고 세로보다 많이 움직였을 때만 잡아 돌린다. 세로가 먼저
+       이기면 손을 떼어(잡지 않았으므로 브라우저가 그대로 스크롤한다) 그 손짓은 스크롤이다. */
+    const SLOP = 6;
     const onDown = (e: React.PointerEvent): void => {
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        drag.current = { x: e.clientX, yaw };
+        drag.current = { x: e.clientX, y: e.clientY, yaw, on: false, id: e.pointerId };
     };
     const onMove = (e: React.PointerEvent): void => {
-        if (!drag.current)
+        const d = drag.current;
+        if (!d)
             return;
-        setYaw(drag.current.yaw - (e.clientX - drag.current.x) * 0.6);
+        const dx = e.clientX - d.x;
+        const dy = e.clientY - d.y;
+        if (!d.on) {
+            if (Math.abs(dy) > SLOP && Math.abs(dy) >= Math.abs(dx)) {   // 세로가 이겼다 — 스크롤에 넘긴다
+                drag.current = null;
+                return;
+            }
+            if (Math.abs(dx) <= SLOP)
+                return;
+            d.on = true;
+            (e.currentTarget as HTMLElement).setPointerCapture(d.id);
+        }
+        setYaw(d.yaw - dx * 0.6);
     };
     const onUp = (): void => { drag.current = null; };
     useEffect(() => {
@@ -198,6 +226,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                     rotDeg={yaw}
                     pose={c.cut}
                     fit
+                    fitBox={fitBox}
                     className="scr-doc-svg"
                   />
                   <figcaption>
@@ -217,10 +246,11 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
    32-상자는 지도가 쓰는 넓은 창이라, 그 안에서 마린의 잉크는 상자의 6분의 1이다:
    칸에 그리면 **점 하나**가 되어 무엇인지 안 보였다(첫 판 스크린샷이 그랬다).
    도록은 '어떻게 생겼나'를 보는 자리이므로 칸을 꽉 채우는 편이 옳다.
-   ※ 대신 컷이 바뀌면 실루엣과 함께 창도 조금 달라진다(scplay의 fitBox 주석이 적어 둔
-     그 사고다). 정지 그림인 각도 줄에서는 칸마다 제 그림이라 뜻이 없고, 모션 팝업에서는
-     자세가 갈릴 때 크기가 살짝 흔들린다 — 안 보이는 것보다 낫다는 판단이고, 거슬리면
-     부르는 쪽이 창을 재서 못 박을 자리(fitBox)가 이미 열려 있다. */
+   ※ 대신 컷이 바뀌면 실루엣과 함께 창도 달라진다(scplay의 fitBox 주석이 적어 둔 그
+     사고다). 정지 그림인 각도 줄에서는 칸마다 제 그림이라 뜻이 없지만, 모션 팝업은
+     같은 모델의 세 컷을 나란히 놓는 자리라 그 흔들림이 곧 거짓말이었다(지적: "모션컷에
+     따라 모델 확대율이 달라짐"). 거기서는 shapeFitBox로 컷들을 미리 훑어 **한 창**을
+     못 박는다(MotionPopup의 fitBox). */
 
 /** 한 항목 — 이름 줄과 각도 칸. 각도 칸은 자리가 화면 가까이 올 때 짓는다(위 useNear). */
 function GalleryRow({ item, rots, wide, onMotion }: {

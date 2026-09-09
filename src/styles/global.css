@@ -2528,9 +2528,14 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 /* 셋을 나란히 — PC 가로, 모바일 세로(요청). 끄는 손을 캔버스가 먹게 touch-action을 끈다
    (안 그러면 브라우저가 세로 스크롤로 채 가서 요잉이 안 돈다). */
+/* touch-action: pan-y — 가로 손짓만 우리가 먹고 세로는 브라우저에 넘긴다(지적: "세로
+   스크롤이 안됨"). none이던 값이 팝업 안 스크롤을 통째로 끄고 있었다: 모바일에서는
+   세 칸이 세로로 쌓여 이 무대가 팝업의 거의 전부라, 창을 내릴 길이 없었다.
+   짝이 되는 자바스크립트 쪽 규약은 GalleryScreen의 onMove다 — 가로가 이길 때만
+   포인터를 잡는다. */
 .scr-doc-popstage {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-  cursor: ew-resize; touch-action: none; user-select: none;
+  cursor: ew-resize; touch-action: pan-y; user-select: none;
 }
 
 .scr-doc-popstage.is-tall { grid-template-columns: 1fr; }
