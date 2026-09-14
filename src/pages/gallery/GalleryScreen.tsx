@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, X } from "lucide-react";
 import {
     SHAPE_GALLERY, ShapeIcon, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
-    shapeFitBox, type ShapeGalleryItem,
+    shapeFitBox, galleryYawOf, type ShapeGalleryItem,
 } from "scplay";
 
 /* 도록(모델 자료실) — 재생기가 쓰는 모델을 한 자리에서 본다(요청).
@@ -50,6 +50,13 @@ function calTilePx(docWidth: number): number | null {
   const mw = Number(q.get("mw")) || 128;
   return (docWidth / mw) * 12;
 }
+/* 방위 눈금 — **유닛의** 눈금이다. 건물은 지도에서 각이 하나(40도)뿐이라 이 눈금을
+   그대로 쓰면 도록의 건물만 지도와 5도 어긋나 선다: 그리는 자리마다 galleryYawOf로
+   그 갈래의 기준각으로 옮긴다(건물은 −5도 → 40·130·220·310). 눈금 글자도 옮긴 각을
+   적는다 — 그림과 숫자가 갈리면 도록이 거짓말을 한다.
+   ★ 모든 칸을 flat(위에서 본 판)으로 굽는다 — 지도의 2D와 **같은 카메라**다(요청:
+     "전부 2D 지도와 같게"). 안 주면 도록 전용 투영(수직 26.8도)이라 같은 모델이 두
+     화면에서 다른 높이로 보였다. */
 const ROTS_WIDE = [0, 45, 90, 135, 180, 225, 270, 315];
 const ROTS_NARROW = [45, 135, 225, 315];
 
@@ -147,7 +154,9 @@ function cutsAt(kind: string, t: number): { idle: 0 | 1 | 2 | 3 | 4 | 5; move: 0
 function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () => void }) {
     const wide = useWide();
     const t = useClock(true);
-    const [yaw, setYaw] = useState(45);
+    /* 첫 각은 **그 갈래의 기준각**이다(galleryYawOf) — 건물은 지도에서 40도 한 각으로만
+       서므로, 팝업을 열자마자 보이는 그림이 지도에서 보던 그 그림이라야 한다. */
+    const [yaw, setYaw] = useState(() => galleryYawOf(45, item.group));
     const drag = useRef<{ x: number; y: number; yaw: number; on: boolean; id: number } | null>(null);
     const cuts = cutsAt(item.kind, t);
     const pk = poseCutsOf(item.kind);
@@ -159,7 +168,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        상자가 이미 구운 면을 다시 훑을 뿐이라 거의 공짜다(그리고 상자가 매 프레임
        미세하게 떨지 않는다). */
     const yawQ = Math.round(yaw / 22.5) * 22.5;
-    const fitBox = useMemo(() => shapeFitBox(item.kind, { rotDeg: yawQ }), [item.kind, yawQ]);
+    const fitBox = useMemo(() => shapeFitBox(item.kind, { rotDeg: yawQ, flat: true }), [item.kind, yawQ]);
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
        요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다.
        ★ 부호는 **빼기**다(지적: "드래그 → 요잉 방향 반대로") — 손으로 만지는 것은 카메라가
@@ -225,6 +234,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                     kind={item.kind}
                     rotDeg={yaw}
                     pose={c.cut}
+                    flat
                     fit
                     fitBox={fitBox}
                     className="scr-doc-svg"
@@ -271,11 +281,11 @@ function GalleryRow({ item, rots, wide, onMotion }: {
             {rots.map((deg) => (
               <div key={deg} className="scr-doc-angle">
                 {near
-                  ? <ShapeIcon kind={item.kind} rotDeg={deg} fit className="scr-doc-svg" />
+                  ? <ShapeIcon kind={item.kind} rotDeg={galleryYawOf(deg, item.group)} flat fit className="scr-doc-svg" />
                   /* 아직 안 구운 자리 — 다 구운 칸과 **같은 높이**를 차지해야 스크롤이
                      안 튄다(자리가 갑자기 늘면 보던 곳이 밀린다). */
                   : <div className="scr-doc-svg scr-doc-hold" aria-hidden />}
-                <span>{deg}°</span>
+                <span>{galleryYawOf(deg, item.group)}°</span>
               </div>
             ))}
           </div>
@@ -334,9 +344,10 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
           </div>
           {rows.length === 0 && <p className="scr-doc-empty">해당하는 모델이 없습니다.</p>}
           {calPx !== null ? (
-            /* 크기 보정 모드 — 격자 바닥(한 칸 = 한 타일) 위에 실제 크기·45도 한 컷. */
+            /* 크기 보정 모드 — 격자 바닥(한 칸 = 한 타일) 위에 실제 크기·기준각 한 컷.
+               기준각은 유닛 45도 · 건물 40도(지도의 BUILDING_BASE_YAW)다 — galleryYawOf. */
             <div className="scr-doc-list scr-doc-cal" style={{ ["--tile" as string]: `${calPx}px` }}>
-              <p className="scr-doc-calnote">타일 {calPx.toFixed(1)}px · 12배 · 45°</p>
+              <p className="scr-doc-calnote">타일 {calPx.toFixed(1)}px · 12배 · 유닛 45° · 건물 40°</p>
               {rows.map((it) => {
                 const px = shapeMapTiles(it.kind) * calPx;
                 return (
@@ -345,7 +356,7 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
                       <span className="scr-doc-race">{(px / calPx).toFixed(2)}타일</span></header>
                     <div className="scr-doc-calfloor">
                       <div className="scr-doc-calbox" style={{ width: px, height: px }}>
-                        <ShapeIcon kind={it.kind} rotDeg={45} flat className="scr-doc-svg scr-doc-calsvg" />
+                        <ShapeIcon kind={it.kind} rotDeg={galleryYawOf(45, it.group)} flat className="scr-doc-svg scr-doc-calsvg" />
                       </div>
                     </div>
                   </section>
