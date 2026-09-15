@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, X } from "lucide-react";
 import {
-    SHAPE_GALLERY, ShapeIcon, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
+    SHAPE_GALLERY, DocIcon9, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
     shapeFitBox, galleryYawOf, type ShapeGalleryItem,
 } from "scplay";
 
@@ -9,7 +9,7 @@ import {
  *
  * ■ 이 화면이 짓지 않는 것
  * 모델을 그리는 일은 한 톨도 안 짓는다. scplay가 낸 넷이 그 일을 다 한다 —
- * SHAPE_GALLERY(무엇이 있나) · ShapeIcon(한 컷을 그린다) · poseCutsOf/poseTempoOf
+ * SHAPE_GALLERY(무엇이 있나) · DocIcon9(한 컷을 그린다 — GL 붓이 켜져 있으면 지도와 같은 메시 그림, 아니면 ShapeIcon SVG) · poseCutsOf/poseTempoOf
  * (어떤 컷을 어떤 박자로) · atkCutOf/flapCutOf(지금 어느 컷인가). 여기서 짓는 것은
  * 고르기·배치·팝업뿐이다.
  * 그래서 모델을 고치면 이 화면이 **저절로 따라온다** — 목록도 차례도 저쪽 표가 정한다.
@@ -230,7 +230,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
             >
               {cells.map((c) => (
                 <figure key={c.label} className="scr-doc-popcell">
-                  <ShapeIcon
+                  <DocIcon9
                     kind={item.kind}
                     rotDeg={yaw}
                     pose={c.cut}
@@ -281,7 +281,7 @@ function GalleryRow({ item, rots, wide, onMotion }: {
             {rots.map((deg) => (
               <div key={deg} className="scr-doc-angle">
                 {near
-                  ? <ShapeIcon kind={item.kind} rotDeg={galleryYawOf(deg, item.group)} flat fit className="scr-doc-svg" />
+                  ? <DocIcon9 kind={item.kind} rotDeg={galleryYawOf(deg, item.group)} flat fit className="scr-doc-svg" />
                   /* 아직 안 구운 자리 — 다 구운 칸과 **같은 높이**를 차지해야 스크롤이
                      안 튄다(자리가 갑자기 늘면 보던 곳이 밀린다). */
                   : <div className="scr-doc-svg scr-doc-hold" aria-hidden />}
@@ -356,7 +356,7 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
                       <span className="scr-doc-race">{(px / calPx).toFixed(2)}타일</span></header>
                     <div className="scr-doc-calfloor">
                       <div className="scr-doc-calbox" style={{ width: px, height: px }}>
-                        <ShapeIcon kind={it.kind} rotDeg={galleryYawOf(45, it.group)} flat className="scr-doc-svg scr-doc-calsvg" />
+                        <DocIcon9 kind={it.kind} rotDeg={galleryYawOf(45, it.group)} flat className="scr-doc-svg scr-doc-calsvg" />
                       </div>
                     </div>
                   </section>
