@@ -2516,6 +2516,18 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 .scr-doc-pophead h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text); }
 
+/* 자동 요잉 단추 — 모델명 바로 옆(요청). 켜지면 임자색으로 눌린 꼴이 된다. */
+.scr-doc-popspin {
+  font-family: inherit; font-size: 11px; line-height: 1;
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--text-dim); background: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px;
+}
+
+.scr-doc-popspin:hover { color: var(--text); }
+
+.scr-doc-popspin.is-on { color: var(--accent); border-color: var(--accent); }
+
 .scr-doc-popview { margin-left: auto; display: flex; align-items: center; gap: 5px; }
 
 /* 시점 알약 셋(평면·사선·입체)은 걷었다(지시) — 이 줄에는 닫기만 남는다. */

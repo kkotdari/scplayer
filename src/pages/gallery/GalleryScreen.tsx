@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
-import { ArrowLeft, Play, X } from "lucide-react";
+import { ArrowLeft, Play, RotateCw, X } from "lucide-react";
 import {
     SHAPE_GALLERY, DocIcon9, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
     shapeFitBox, galleryYawOf, type ShapeGalleryItem,
@@ -167,8 +167,30 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        각(요잉)은 22.5도 칸으로 끊어 잰다 — 모델을 굽는 칸이 그 칸이라, 드래그 중에도
        상자가 이미 구운 면을 다시 훑을 뿐이라 거의 공짜다(그리고 상자가 매 프레임
        미세하게 떨지 않는다). */
-    const yawQ = Math.round(yaw / 22.5) * 22.5;
-    const fitBox = useMemo(() => shapeFitBox(item.kind, { rotDeg: yawQ, flat: true }), [item.kind, yawQ]);
+    /* ★★ **창은 요잉에도 못 박는다**(2026-09, 요청: "도록 팝업창에서 요잉 시 크기(배율)가 커졌다
+       작아졌다 하지 않게") — 여태 창을 **그 각의 잉크**에 맞추고 있었다(yawQ 마다 새 상자). 그런데
+       실루엣의 폭은 각마다 다르다(길쭉한 몸은 정면 3칸 · 옆면 7칸) — 창이 거기 붙으면 돌릴 때마다
+       배율이 따라 뛰어, 몸이 도는 것이 아니라 **몸이 커졌다 작아졌다** 한다.
+       컷 셋을 한 창으로 묶은 것과 **같은 자**다(아래 shapeFitBox 주석) — 그 자를 요잉에도 편다:
+       여덟 각을 훑어 **합집합 상자** 하나를 얻고 그것을 모든 각에 내린다. 그러면 창은 가장 넓은
+       각에 맞춰져 있고, 돌리는 동안 바뀌는 것은 **모델의 꼴뿐**이다.
+       ⚠ 이 손은 **여기서** 편다 — shapeFitBox 는 각 하나를 받는 자이고, 상자를 합치는 일은 그것이
+         돌려주는 네 수(viewBox)만으로 된다. 굽기는 어차피 드래그 중에 한 번씩 지나갈 각들이라
+         새로 드는 몫이 아니라 **앞당겨 치르는 몫**이다(팝업을 열 때 한 번, 종류마다 캐시).
+       ⚠ 여덟이면 사이 각(22.5도 칸)에서 몇 %쯤 모자랄 수 있지만 여백(0.12)이 그것을 받는다 —
+         열여섯으로 늘리면 여는 순간의 굽기가 두 배다. */
+    const fitBox = useMemo(() => {
+        let b: [number, number, number, number] | null = null;
+        for (let i = 0; i < 8; i += 1) {
+            const v = shapeFitBox(item.kind, { rotDeg: galleryYawOf(45, item.group) + i * 45, flat: true });
+            if (!v) continue;
+            const n = v.split(/\s+/).map(Number);
+            if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) continue;
+            const q: [number, number, number, number] = [n[0], n[1], n[0] + n[2], n[1] + n[3]];
+            b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q;
+        }
+        return b ? `${b[0]} ${b[1]} ${b[2] - b[0]} ${b[3] - b[1]}` : undefined;
+    }, [item.kind, item.group]);
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
        요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다.
        ★ 부호는 **빼기**다(지적: "드래그 → 요잉 방향 반대로") — 손으로 만지는 것은 카메라가
@@ -179,6 +201,26 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        스크롤을 통째로 끈다. 이제 pan-y다)과, **누르자마자** 포인터를 잡아채던 이 함수다.
        이제 가로로 6px 넘게, 그리고 세로보다 많이 움직였을 때만 잡아 돌린다. 세로가 먼저
        이기면 손을 떼어(잡지 않았으므로 브라우저가 그대로 스크롤한다) 그 손짓은 스크롤이다. */
+    /* ★ **자동 요잉**(요청: "도록 팝업창 모델명 옆에 자동 요잉 버튼 추가 — 부드럽게 요잉하기") —
+       각을 프레임마다 **벽시계 몫만큼** 올린다(초당 36도 = 한 바퀴 10초). 프레임 수로 올리면
+       기기마다 도는 속도가 달라진다. 손으로 잡는 순간 멈춘다 — 끌던 각과 도는 각이 싸우면
+       손짓이 미끄러진다. */
+    const [auto, setAuto] = useState(false);
+    useEffect(() => {
+        if (!auto)
+            return undefined;
+        let raf = 0;
+        let last = performance.now();
+        const step = (): void => {
+            const now = performance.now();
+            const dt = Math.min(0.05, (now - last) / 1000);
+            last = now;
+            setYaw((y) => y + dt * 36);
+            raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf);
+    }, [auto]);
     const SLOP = 6;
     const onDown = (e: React.PointerEvent): void => {
         drag.current = { x: e.clientX, y: e.clientY, yaw, on: false, id: e.pointerId };
@@ -197,6 +239,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
             if (Math.abs(dx) <= SLOP)
                 return;
             d.on = true;
+            setAuto(false);   // 손이 잡으면 자동 요잉은 비킨다
             (e.currentTarget as HTMLElement).setPointerCapture(d.id);
         }
         setYaw(d.yaw - dx * 0.6);
@@ -217,6 +260,16 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
           <div className="scr-doc-popbox">
             <header className="scr-doc-pophead">
               <h3>{item.label}</h3>
+              <button
+                type="button"
+                className={`scr-doc-popspin${auto ? " is-on" : ""}`}
+                onClick={() => setAuto((v) => !v)}
+                aria-pressed={auto}
+                title={auto ? "자동 회전 멈춤" : "자동 회전"}
+              >
+                <RotateCw size={13} />
+                {auto ? "멈춤" : "자동 회전"}
+              </button>
               <div className="scr-doc-popview">
                 <button type="button" className="scr-doc-popclose" onClick={onClose} aria-label="닫기"><X size={16} /></button>
               </div>
@@ -246,7 +299,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                 </figure>
               ))}
             </div>
-            <p className="scr-doc-pophint">좌우로 끌면 돌아갑니다</p>
+            <p className="scr-doc-pophint">좌우로 끌면 돌아갑니다 · 자동 회전 단추로 스스로 돌립니다</p>
           </div>
         </div>
     );
