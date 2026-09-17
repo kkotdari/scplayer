@@ -340,6 +340,8 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                       box={boxOf.get(c.label)}
                       rotDeg={c.rotDeg ?? yaw}
                       headDeg={c.headDeg ?? c.attachRot}
+                      /* 그 칸이 그릴 갈래 — 지상·대공이 다른 종류는 칸마다 제 무기다(scplay docAtkFx9). */
+                      fx={c.fx}
                       className="scr-doc-shot"
                     />}
                   </div>

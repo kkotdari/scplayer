@@ -2516,8 +2516,16 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
   background: rgba(0, 0, 0, 0.62);
 }
 
+/* ★ 팝업 속을 끝까지 굴려도 **뒤 페이지가 안 따라 굴러간다**(2026-09, 지적: "도록 팝업 스크롤
+   최하단에서 뒷페이지의 세로 스크롤로 전파됨") — 브라우저 기본은 안쪽 상자가 끝에 닿으면 남은
+   몫을 **부모에게 넘긴다**(스크롤 체이닝). 덮개(.scr-doc-pop)가 화면을 다 가리고 있어도 휠·터치는
+   그 밑 목록을 굴린다. `contain` 이 그 넘김만 막는다(`none` 은 당겨서 새로고침까지 막는 자라,
+   덮개 안에서는 굳이 셀 일이 아니다).
+   ⚠ 덮개에도 함께 건다 — 팝업 상자 **밖(어두운 여백)**에서 굴리면 그 넘김은 덮개가 낸다. */
+.scr-doc-pop { overscroll-behavior: contain; }
+
 .scr-doc-popbox {
-  width: min(880px, 100%); max-height: 92vh; overflow: auto;
+  width: min(880px, 100%); max-height: 92vh; overflow: auto; overscroll-behavior: contain;
   border: 1px solid var(--line); border-radius: 16px; background: var(--card-bg);
   padding: 14px 16px 16px;
 }
