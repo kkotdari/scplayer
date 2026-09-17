@@ -331,7 +331,17 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                       fitBox={boxOf.get(c.label)}
                       className="scr-doc-svg"
                     />
-                    {c.tracer && <DocTracer9 kind={item.kind} t={t} overlay className="scr-doc-shot" />}
+                    {c.tracer && <DocTracer9
+                      kind={item.kind}
+                      t={t}
+                      overlay
+                      /* 창·요잉·겨눔을 그대로 넘긴다 — 트레이서가 그 칸의 모델 위 제 총구에
+                         앉고, 돌리면 함께 돈다(scplay DocTracer9 의 ★★). */
+                      box={boxOf.get(c.label)}
+                      rotDeg={c.rotDeg ?? yaw}
+                      headDeg={c.headDeg ?? c.attachRot}
+                      className="scr-doc-shot"
+                    />}
                   </div>
                   <figcaption>
                     {c.label}
