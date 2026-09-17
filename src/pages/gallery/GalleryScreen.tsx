@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, RotateCw, X } from "lucide-react";
 import {
-    SHAPE_GALLERY, DocIcon9, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
-    shapeFitBox, galleryYawOf, docAnimOf9, BUILD_STAGES, type ShapeGalleryItem,
+    SHAPE_GALLERY, DocIcon9, DocTracer9, docWeaponOf9, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf,
+    shapeMapTiles, shapeFitBox, galleryYawOf, docAnimOf9, BUILD_STAGES, type ShapeGalleryItem,
 } from "scplay";
 
 /* 도록(모델 자료실) — 재생기가 쓰는 모델을 한 자리에서 본다(요청).
@@ -161,7 +161,11 @@ type CellProps = {
     /** 그 칸만 요잉을 달리 쓸 때(핵탄두의 낙하 회전) — 안 주면 팝업의 요잉. */
     rotDeg?: number;
 };
-type Cell = { label: string; props: CellProps; own: boolean };
+type Cell = {
+    label: string; props: CellProps; own: boolean;
+    /** 모델이 아니라 **트레이서 한 발**을 그리는 칸(요청: "트레이서는 못그려주나? 도록에"). */
+    tracer?: boolean;
+};
 
 /** ★ **건물의 움직임 칸 셋**(요청: "도록에서 건물도 유닛처럼 idle 상태 애니메이션 재생
  *  (서플라이 팬, 터렛 포탑 돌기 등) · 액션칸에는 생산중/업그레이드중/공격중 등 가지고 있는
@@ -327,6 +331,12 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                 { label: "낙하 회전", props: { rotDeg: yaw - Math.round(((t * 180) % 360) / 22.5) * 22.5 }, own: true },
             ]
             : bldCells(item.kind, t, yaw);
+    /* ★ **트레이서 칸**(요청) — 그 종류가 쏘는 무기가 있으면 한 칸 더 세운다. 그리는 것은
+       지도와 **같은 붓**이다(scplay 의 paintFxList9 를 DocTracer9 가 부른다) — 칸 왼아래가
+       총구, 오른위가 표적이고 한 발이 그 사이를 지난다. 무기가 없는 종류(근접·일꾼·건물
+       대부분)는 `docWeaponOf9` 가 null 이라 칸이 안 선다. */
+    const weapon = docWeaponOf9(item.kind);
+    if (weapon) cells.push({ label: `트레이서 · ${weapon}`, props: {}, own: true, tracer: true });
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
           <div className="scr-doc-popbox">
@@ -356,7 +366,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
             >
               {cells.map((c) => (
                 <figure key={c.label} className="scr-doc-popcell">
-                  <DocIcon9
+                  {c.tracer ? <DocTracer9 kind={item.kind} t={t} className="scr-doc-svg" /> : <DocIcon9
                     kind={item.kind}
                     rotDeg={c.props.rotDeg ?? yaw}
                     pose={c.props.pose}
@@ -369,7 +379,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                     fit
                     fitBox={fitBox}
                     className="scr-doc-svg"
-                  />
+                  />}
                   <figcaption>
                     {c.label}
                     {!c.own && <span className="scr-doc-same">모델 없음 · 대기와 같음</span>}
