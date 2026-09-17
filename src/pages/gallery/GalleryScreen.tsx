@@ -188,6 +188,9 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                 if (!set9) { set9 = new Set<string>(); byLabel.set(c.label, set9); }
                 set9.add(c.kind ?? item.kind);
                 if (c.attach) set9.add(c.attach);
+                /* ★ 겹판(시즈 전환의 버팀다리·전환 포탑)도 그 칸이 그리는 몸이다(scplay DocCell9.parts 의 ⚠) —
+                   빼면 창이 차체에만 맞춰져 뻗은 다리와 뒤로 나온 포신이 잘린다. */
+                for (const pt of c.parts ?? []) set9.add(pt.kind);
             }
         }
         const union = (kinds: string[]): string | undefined => {
@@ -326,6 +329,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                       blink={c.blink}
                       attach={c.attach}
                       attachRot={c.attachRot}
+                      parts={c.parts}
                       flat
                       fit
                       fitBox={boxOf.get(c.label)}
