@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, RotateCw, X } from "lucide-react";
 import {
     SHAPE_GALLERY, DocIcon9, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf, shapeMapTiles,
-    shapeFitBox, galleryYawOf, type ShapeGalleryItem,
+    shapeFitBox, galleryYawOf, docAnimOf9, BUILD_STAGES, type ShapeGalleryItem,
 } from "scplay";
 
 /* 도록(모델 자료실) — 재생기가 쓰는 모델을 한 자리에서 본다(요청).
@@ -149,6 +149,66 @@ function cutsAt(kind: string, t: number): { idle: 0 | 1 | 2 | 3 | 4 | 5; move: 0
     return { idle, move, act };
 }
 
+/** 도록 한 칸이 모델에 내려 주는 값 — DocIcon9 의 프롭 그대로다(자세 컷 · 회전 칸 ·
+ *  포탑 각 · 불빛 · 건설 단계 · 경광등 · 요잉 덮어쓰기). */
+type CellProps = {
+    pose?: 0 | 1 | 2 | 3 | 4 | 5;
+    spin?: number;
+    headDeg?: number;
+    lit?: boolean;
+    stage?: number;
+    blink?: boolean;
+    /** 그 칸만 요잉을 달리 쓸 때(핵탄두의 낙하 회전) — 안 주면 팝업의 요잉. */
+    rotDeg?: number;
+};
+type Cell = { label: string; props: CellProps; own: boolean };
+
+/** ★ **건물의 움직임 칸 셋**(요청: "도록에서 건물도 유닛처럼 idle 상태 애니메이션 재생
+ *  (서플라이 팬, 터렛 포탑 돌기 등) · 액션칸에는 생산중/업그레이드중/공격중 등 가지고 있는
+ *  애니메이션 재생 · 공사도 도록에 나오면 좋겠는데") ────────────────────────────────────
+ *  건물은 자세 컷(pose)으로 안 움직인다 — 지도가 건물을 움직이는 것은 **회전 칸 · 포탑 각 ·
+ *  불빛 · 건설 단계** 넷이고, 그 넷을 가졌는지는 scplay 의 `docAnimOf9` 가 알려 준다(명단을
+ *  여기 베끼면 모델을 고칠 때 두 곳을 맞춰야 한다).
+ *  칸은 유닛과 같은 자리에 같은 뜻으로 선다: 대기 → 액션 → (건물만) 공사.
+ *    · 대기 — 늘 도는 것(서플라이 팬·코어 원반)과 **쉴 때 도는 포탑**(터렛의 탐지 회전,
+ *      지도와 같은 96°/s). 경광등은 발판을 제 종류로 보는 자리에서 깜빡인다.
+ *    · 액션 — 불을 켜고(생산·연구·가스 채취) 포탑이 **겨눈다**(headDeg 를 주면 '겨누는 중'이
+ *      함께 서서 포토·성큰의 공격 모델이 나온다). 도는 부품도 함께 돈다(머신샵 톱니는
+ *      연구 중에만 도는 종류다).
+ *    · 공사 — 단계 1~BUILD_STAGES−1 을 한 바퀴 돌린다. 발판 두 채가 서고 경광등이 깜빡인다.
+ *  ⚠ 겨눔 각은 **몸의 요잉에 더해** 준다(headDeg 는 절대 도다 — bldMesh 가 몸 요잉을 뺀다). */
+function bldCells(kind: string, t: number, yaw: number): Cell[] {
+    const a = docAnimOf9(kind);
+    /* 회전 칸 — 성큰 혀는 **공격 컷 넷**이라 넷으로 접고(sunkentongue·sunkenfire), 나머지는
+       여덟 칸(45°)이다. 초당 네 칸이면 눈에 도는 것으로 읽히고 열쇠도 여덟 벌로 닫힌다. */
+    const cuts9 = /sunken/.test(kind) ? 4 : 8;
+    const spin9 = Math.floor(t * 4) % cuts9;
+    const blink9 = Math.floor(t * 2) % 2 === 0;           // 지도와 같은 박자(0.5초)
+    const idleHead9 = yaw + ((t * 96) % 360);             // 쉴 때 도는 탐지 회전(96°/s)
+    const aimHead9 = yaw + 40 * Math.sin(t * 0.9);        // 겨누는 중 — 표적을 좌우로 따라간다
+    const idle: CellProps = {
+        ...(a.spin ? { spin: spin9 } : {}),
+        ...(a.head ? { headDeg: idleHead9 } : {}),
+        blink: blink9,
+    };
+    const act: CellProps = {
+        ...(a.spin ? { spin: spin9 } : {}),
+        ...(a.head ? { headDeg: aimHead9 } : {}),
+        ...(a.lit ? { lit: true } : {}),
+    };
+    const cells: Cell[] = [
+        { label: "대기", props: idle, own: true },
+        { label: "액션", props: act, own: a.lit || a.head || a.spin },
+    ];
+    if (a.stage) {
+        /* 공사 — 한 바퀴 4초. 1 부터 BUILD_STAGES−1 까지가 '짓는 중'이고 0(완성)은 대기 칸이
+           이미 보여 주므로 안 넣는다. */
+        const st9 = 1 + Math.floor(((t / 4) % 1) * (BUILD_STAGES - 1));
+        cells.push({ label: "공사", props: { stage: st9, blink: blink9 }, own: true });
+    }
+    return cells;
+}
+
 /** 모션 팝업 — idle·이동·액션 셋을 나란히(PC 가로 · 모바일 세로, 요청).
  *  요잉은 드래그로 자유롭게 돌린다(각도 제한 없음). 피치는 세 칸을 버튼으로 고른다. */
 function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () => void }) {
@@ -250,11 +310,23 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
-    const cells: { label: string; cut: 0 | 1 | 2 | 3 | 4 | 5; own: boolean }[] = [
-        { label: "대기", cut: cuts.idle, own: true },
-        { label: "이동", cut: cuts.move, own: !!pk?.move },
-        { label: "액션", cut: cuts.act, own: !!pk?.atk },
-    ];
+    /* ★ 칸은 **그 모델이 가진 움직임**으로 세운다 — 유닛은 자세 컷 셋(대기·이동·액션),
+       건물은 회전 칸·포탑 각·불빛·건설 단계(bldCells 의 ★). 핵탄두는 요잉 자체가 움직임이다
+       (요청: "핵탄두 회전도 넣어야하고" — 지도에서 떨어지며 두 바퀴 돈다). */
+    const anim = docAnimOf9(item.kind);
+    const cells: Cell[] = anim.pose
+        ? [
+            { label: "대기", props: { pose: cuts.idle }, own: true },
+            { label: "이동", props: { pose: cuts.move }, own: !!pk?.move },
+            { label: "액션", props: { pose: cuts.act }, own: !!pk?.atk },
+        ]
+        : anim.yawSpin
+            ? [
+                { label: "대기", props: {}, own: true },
+                /* 낙하 회전 — 지도와 같은 22.5도 칸(굽기 열쇠가 그 칸이다)으로 반시계로 돈다. */
+                { label: "낙하 회전", props: { rotDeg: yaw - Math.round(((t * 180) % 360) / 22.5) * 22.5 }, own: true },
+            ]
+            : bldCells(item.kind, t, yaw);
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
           <div className="scr-doc-popbox">
@@ -276,6 +348,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
             </header>
             <div
               className={`scr-doc-popstage${wide ? "" : " is-tall"}`}
+              style={{ ["--cells" as string]: String(cells.length) }}
               onPointerDown={onDown}
               onPointerMove={onMove}
               onPointerUp={onUp}
@@ -285,8 +358,13 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                 <figure key={c.label} className="scr-doc-popcell">
                   <DocIcon9
                     kind={item.kind}
-                    rotDeg={yaw}
-                    pose={c.cut}
+                    rotDeg={c.props.rotDeg ?? yaw}
+                    pose={c.props.pose}
+                    spin={c.props.spin}
+                    headDeg={c.props.headDeg}
+                    lit={c.props.lit}
+                    stage={c.props.stage}
+                    blink={c.props.blink}
                     flat
                     fit
                     fitBox={fitBox}

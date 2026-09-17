@@ -2546,7 +2546,9 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
    짝이 되는 자바스크립트 쪽 규약은 GalleryScreen의 onMove다 — 가로가 이길 때만
    포인터를 잡는다. */
 .scr-doc-popstage {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  /* 칸 수는 그 모델이 가진 움직임이 정한다(유닛 셋 · 건물 셋 · 핵탄두 둘) — 화면이
+     칸 수를 --cells 로 내려 준다. 못 박으면 두 칸짜리가 한쪽으로 쏠린다. */
+  display: grid; grid-template-columns: repeat(var(--cells, 3), 1fr); gap: 10px;
   cursor: ew-resize; touch-action: pan-y; user-select: none;
 }
 
