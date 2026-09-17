@@ -165,6 +165,8 @@ type Cell = {
     label: string; props: CellProps; own: boolean;
     /** 모델이 아니라 **트레이서 한 발**을 그리는 칸(요청: "트레이서는 못그려주나? 도록에"). */
     tracer?: boolean;
+    /** 그 칸이 그릴 **딴 종류**(변신 차례의 지금 한 컷) — 없으면 이 항목 제 종류다. */
+    kind?: string;
 };
 
 /** ★ **건물의 움직임 칸 셋**(요청: "도록에서 건물도 유닛처럼 idle 상태 애니메이션 재생
@@ -245,8 +247,11 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
          열여섯으로 늘리면 여는 순간의 굽기가 두 배다. */
     const fitBox = useMemo(() => {
         let b: [number, number, number, number] | null = null;
-        for (let i = 0; i < 8; i += 1) {
-            const v = shapeFitBox(item.kind, { rotDeg: galleryYawOf(45, item.group) + i * 45, flat: true });
+        /* 변신 차례가 있으면 **그 종류들까지** 한 창에 담는다 — 알과 몸이 다른 배율로 서면
+           변신이 아니라 확대로 읽힌다. */
+        const kinds9 = docAnimOf9(item.kind).morph ?? [item.kind];
+        for (let i = 0; i < 8 * kinds9.length; i += 1) {
+            const v = shapeFitBox(kinds9[i % kinds9.length], { rotDeg: galleryYawOf(45, item.group) + Math.floor(i / kinds9.length) * 45, flat: true });
             if (!v) continue;
             const n = v.split(/\s+/).map(Number);
             if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) continue;
@@ -337,6 +342,18 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        대부분)는 `docWeaponOf9` 가 null 이라 칸이 안 선다. */
     const weapon = docWeaponOf9(item.kind);
     if (weapon) cells.push({ label: `트레이서 · ${weapon}`, props: {}, own: true, tracer: true });
+    /* ★ **변신 칸**(물음: "공사고치, 알 변태완료나 럴커 버로우, 시즈모드 애니메이션도 도록에
+       나오면 좋겠는데 넣을 데가 있나?") — 넣을 데가 있다. 그 모델들은 이미 제 칸으로 도록에
+       서 있으니(공사 고치·알·럴커 알·변태 고치·버로우·시즈), 없던 것은 '무엇이 무엇으로
+       바뀌나'라는 **이음**뿐이다. scplay 의 차례표(docAnimOf9().morph)를 시각으로 돌려
+       한 칸에서 보여 준다 — 한 컷 1.1초.
+       ⚠ 창은 **차례 전체의 합집합**으로 못 박는다(아래 morphBox) — 안 그러면 알에서 몸으로
+         갈 때 배율이 튀어 '변신'이 아니라 '확대'로 읽힌다. */
+    if (anim.morph && anim.morph.length > 1) {
+        const mk = anim.morph[Math.floor(t / 1.1) % anim.morph.length];
+        const ml = SHAPE_GALLERY.find((g) => g.kind === mk)?.label ?? mk;
+        cells.push({ label: `변신 · ${ml}`, props: {}, own: true, kind: mk });
+    }
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
           <div className="scr-doc-popbox">
@@ -367,7 +384,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
               {cells.map((c) => (
                 <figure key={c.label} className="scr-doc-popcell">
                   {c.tracer ? <DocTracer9 kind={item.kind} t={t} className="scr-doc-svg" /> : <DocIcon9
-                    kind={item.kind}
+                    kind={c.kind ?? item.kind}
                     rotDeg={c.props.rotDeg ?? yaw}
                     pose={c.props.pose}
                     spin={c.props.spin}
