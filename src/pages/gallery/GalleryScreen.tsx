@@ -282,6 +282,21 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
+    /* ★★ **`overscroll-behavior: contain` 은 굴릴 것이 있을 때만 먹는다**(2026-09, 지적: "도록에서
+       스크롤 없는 경우 뒤로 세로 스크롤 아직 전파됨") — 팝업 상자에 그 자를 걸어 두었지만, 그것은
+       **스크롤 포트**의 성질이라 내용이 상자 안에 다 들어와 굴릴 몫이 0 이면 브라우저가 애초에 그
+       상자를 건너뛰고 문서를 굴린다(덮개 .scr-doc-pop 은 overflow 가 visible 이라 포트도 아니다).
+       곧 '끝까지 굴렸을 때의 넘김'은 막혔지만 '처음부터 굴릴 게 없는' 자리는 안 막힌 것이다.
+       그 자리는 CSS 로 못 막으므로 **문서 스크롤을 잠근다** — 팝업이 화면을 다 덮는 동안 뒤가
+       굴러갈 까닭이 없다. 휠·터치·키보드 어느 길이든 한 번에 막힌다.
+       ⚠ 자리는 안 튄다 — :root 에 `scrollbar-gutter: stable` 이 걸려 있어 막대가 사라져도 폭이
+         안 바뀌고, 스크롤 자리(scrollY)는 그대로 남는다. */
+    useEffect(() => {
+        const el = document.documentElement; const bd = document.body;
+        const pe = el.style.overflow; const pb = bd.style.overflow;
+        el.style.overflow = "hidden"; bd.style.overflow = "hidden";
+        return () => { el.style.overflow = pe; bd.style.overflow = pb; };
+    }, []);
     /* 칸은 scplay 가 세운다(위 ★★) — 대기 · 이동/활성 · 공격 · 액션 넷 중 **있는 것만**
        온다. 여기서 하는 일은 그 값을 DocIcon9 에 그대로 내려 주는 것뿐이다. */
     const cells = docCellsOf9(item.kind, t, yaw);
