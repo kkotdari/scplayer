@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, RotateCw, X } from "lucide-react";
 import {
-    SHAPE_GALLERY, DocIcon9, DocTracer9, docWeaponOf9, poseCutsOf, poseTempoOf, atkCutOf, flapCutOf,
-    shapeMapTiles, shapeFitBox, galleryYawOf, docAnimOf9, BUILD_STAGES, type ShapeGalleryItem,
+    SHAPE_GALLERY, DocIcon9, DocTracer9,
+    shapeMapTiles, shapeFitBox, galleryYawOf, docAnimOf9, docCellsOf9, type ShapeGalleryItem,
 } from "scplay";
 
 /* 도록(모델 자료실) — 재생기가 쓰는 모델을 한 자리에서 본다(요청).
@@ -130,90 +130,16 @@ function useClock(on: boolean): number {
     return t;
 }
 
-/** 그 종류의 세 모션 — 없는 컷은 idle로 갈음한다(요청).
- *  돌려주는 것은 **컷 번호**다: 0 기본 · 1·3 걸음 · 2·4·5 공격. */
-function cutsAt(kind: string, t: number): { idle: 0 | 1 | 2 | 3 | 4 | 5; move: 0 | 1 | 2 | 3 | 4 | 5; act: 0 | 1 | 2 | 3 | 4 | 5 } {
-    const pk = poseCutsOf(kind);
-    const tempo = poseTempoOf(kind);
-    /* idle — 나는 몸은 서 있어도 날개를 친다(그것이 그 몸의 '가만히'다). 나머지는 0. */
-    const idle = pk?.flap ? flapCutOf(pk.flap, t) : 0;
-    /* 이동 — 걸음 컷은 1과 3을 오간다. 박자는 그 종류의 걸음 Hz다.
-       ★ 걸음 컷이 없으면 idle 그대로다(요청). */
-    const move = pk?.move && tempo
-        ? (Math.floor(t * tempo.walkHz) % 2 === 1 ? 3 : 1) as 1 | 3
-        : idle;
-    /* 액션 — 재생기와 **같은 문**(atkCutOf)이 컷을 낸다. 쿨다운 한 바퀴가 위상이다. */
-    const act = pk?.atk && tempo
-        ? atkCutOf(kind, ((t % tempo.atkCd) + tempo.atkCd) % tempo.atkCd / tempo.atkCd, pk.flap, t)
-        : idle;
-    return { idle, move, act };
-}
-
-/** 도록 한 칸이 모델에 내려 주는 값 — DocIcon9 의 프롭 그대로다(자세 컷 · 회전 칸 ·
- *  포탑 각 · 불빛 · 건설 단계 · 경광등 · 요잉 덮어쓰기). */
-type CellProps = {
-    pose?: 0 | 1 | 2 | 3 | 4 | 5;
-    spin?: number;
-    headDeg?: number;
-    lit?: boolean;
-    stage?: number;
-    blink?: boolean;
-    /** 그 칸만 요잉을 달리 쓸 때(핵탄두의 낙하 회전) — 안 주면 팝업의 요잉. */
-    rotDeg?: number;
-};
-type Cell = {
-    label: string; props: CellProps; own: boolean;
-    /** 모델이 아니라 **트레이서 한 발**을 그리는 칸(요청: "트레이서는 못그려주나? 도록에"). */
-    tracer?: boolean;
-    /** 그 칸이 그릴 **딴 종류**(변신 차례의 지금 한 컷) — 없으면 이 항목 제 종류다. */
-    kind?: string;
-};
-
-/** ★ **건물의 움직임 칸 셋**(요청: "도록에서 건물도 유닛처럼 idle 상태 애니메이션 재생
- *  (서플라이 팬, 터렛 포탑 돌기 등) · 액션칸에는 생산중/업그레이드중/공격중 등 가지고 있는
- *  애니메이션 재생 · 공사도 도록에 나오면 좋겠는데") ────────────────────────────────────
- *  건물은 자세 컷(pose)으로 안 움직인다 — 지도가 건물을 움직이는 것은 **회전 칸 · 포탑 각 ·
- *  불빛 · 건설 단계** 넷이고, 그 넷을 가졌는지는 scplay 의 `docAnimOf9` 가 알려 준다(명단을
- *  여기 베끼면 모델을 고칠 때 두 곳을 맞춰야 한다).
- *  칸은 유닛과 같은 자리에 같은 뜻으로 선다: 대기 → 액션 → (건물만) 공사.
- *    · 대기 — 늘 도는 것(서플라이 팬·코어 원반)과 **쉴 때 도는 포탑**(터렛의 탐지 회전,
- *      지도와 같은 96°/s). 경광등은 발판을 제 종류로 보는 자리에서 깜빡인다.
- *    · 액션 — 불을 켜고(생산·연구·가스 채취) 포탑이 **겨눈다**(headDeg 를 주면 '겨누는 중'이
- *      함께 서서 포토·성큰의 공격 모델이 나온다). 도는 부품도 함께 돈다(머신샵 톱니는
- *      연구 중에만 도는 종류다).
- *    · 공사 — 단계 1~BUILD_STAGES−1 을 한 바퀴 돌린다. 발판 두 채가 서고 경광등이 깜빡인다.
- *  ⚠ 겨눔 각은 **몸의 요잉에 더해** 준다(headDeg 는 절대 도다 — bldMesh 가 몸 요잉을 뺀다). */
-function bldCells(kind: string, t: number, yaw: number): Cell[] {
-    const a = docAnimOf9(kind);
-    /* 회전 칸 — 성큰 혀는 **공격 컷 넷**이라 넷으로 접고(sunkentongue·sunkenfire), 나머지는
-       여덟 칸(45°)이다. 초당 네 칸이면 눈에 도는 것으로 읽히고 열쇠도 여덟 벌로 닫힌다. */
-    const cuts9 = /sunken/.test(kind) ? 4 : 8;
-    const spin9 = Math.floor(t * 4) % cuts9;
-    const blink9 = Math.floor(t * 2) % 2 === 0;           // 지도와 같은 박자(0.5초)
-    const idleHead9 = yaw + ((t * 96) % 360);             // 쉴 때 도는 탐지 회전(96°/s)
-    const aimHead9 = yaw + 40 * Math.sin(t * 0.9);        // 겨누는 중 — 표적을 좌우로 따라간다
-    const idle: CellProps = {
-        ...(a.spin ? { spin: spin9 } : {}),
-        ...(a.head ? { headDeg: idleHead9 } : {}),
-        blink: blink9,
-    };
-    const act: CellProps = {
-        ...(a.spin ? { spin: spin9 } : {}),
-        ...(a.head ? { headDeg: aimHead9 } : {}),
-        ...(a.lit ? { lit: true } : {}),
-    };
-    const cells: Cell[] = [
-        { label: "대기", props: idle, own: true },
-        { label: "액션", props: act, own: a.lit || a.head || a.spin },
-    ];
-    if (a.stage) {
-        /* 공사 — 한 바퀴 4초. 1 부터 BUILD_STAGES−1 까지가 '짓는 중'이고 0(완성)은 대기 칸이
-           이미 보여 주므로 안 넣는다. */
-        const st9 = 1 + Math.floor(((t / 4) % 1) * (BUILD_STAGES - 1));
-        cells.push({ label: "공사", props: { stage: st9, blink: blink9 }, own: true });
-    }
-    return cells;
-}
+/* ★★ **칸을 세우는 일은 이제 scplay 가 한다**(요청: "셀은 대기 - 이동/활성 - 공격 -
+   액션/추가액션(럴커 땅파기 등) 이렇게 네 개로 하고 **하고 있는 셀만** 보여주기") ────────
+   여기 있던 것 셋을 걷었다 — 유닛의 세 컷을 내던 `cutsAt`, 건물의 세 칸을 내던 `bldCells`,
+   그리고 그 둘이 쓰던 칸 값 타입이다. 합쳐 90줄이 `scplay 의 docCellsOf9` 한 자리로 갔다.
+   까닭은 그 함수의 ★★ 에 적혀 있다: 칸에 무엇을 놓을지는 **모델을 아는 쪽**이 정해야 한다
+   (도는 걸음·불빛 박자·성큰의 사격 시계는 다 지도가 쓰는 숫자다). 도록이 제 표를 따로 들면
+   모델을 고칠 때 두 곳을 맞춰야 하고, 실제로 그래서 코어 디스크가 쉬는 중에도 돌고 회전이
+   지도의 5분의 1 걸음으로 끊겼다.
+   이 화면에 남은 일은 **배치**뿐이다 — 받은 칸을 나란히 놓고, 트레이서가 있다는 칸에는
+   그림 위에 한 발을 겹쳐 그린다. */
 
 /** 모션 팝업 — idle·이동·액션 셋을 나란히(PC 가로 · 모바일 세로, 요청).
  *  요잉은 드래그로 자유롭게 돌린다(각도 제한 없음). 피치는 세 칸을 버튼으로 고른다. */
@@ -224,8 +150,6 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        서므로, 팝업을 열자마자 보이는 그림이 지도에서 보던 그 그림이라야 한다. */
     const [yaw, setYaw] = useState(() => galleryYawOf(45, item.group));
     const drag = useRef<{ x: number; y: number; yaw: number; on: boolean; id: number } | null>(null);
-    const cuts = cutsAt(item.kind, t);
-    const pk = poseCutsOf(item.kind);
     /* ★ 창은 세 칸이 **하나**다(지적: "모션컷에 따라 모델 확대율이 달라짐") ───────────
        ShapeIcon의 fit은 그 컷의 잉크에 창을 맞추므로, 팔을 뻗는 액션 컷은 창이 넓어지며
        몸이 작아지고 대기 컷은 커진다 — 나란히 놓으면 셋의 배율이 제각각이다. scplay의
@@ -245,20 +169,56 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
          새로 드는 몫이 아니라 **앞당겨 치르는 몫**이다(팝업을 열 때 한 번, 종류마다 캐시).
        ⚠ 여덟이면 사이 각(22.5도 칸)에서 몇 %쯤 모자랄 수 있지만 여백(0.12)이 그것을 받는다 —
          열여섯으로 늘리면 여는 순간의 굽기가 두 배다. */
-    const fitBox = useMemo(() => {
-        let b: [number, number, number, number] | null = null;
-        /* 변신 차례가 있으면 **그 종류들까지** 한 창에 담는다 — 알과 몸이 다른 배율로 서면
-           변신이 아니라 확대로 읽힌다. */
-        const kinds9 = docAnimOf9(item.kind).morph ?? [item.kind];
-        for (let i = 0; i < 8 * kinds9.length; i += 1) {
-            const v = shapeFitBox(kinds9[i % kinds9.length], { rotDeg: galleryYawOf(45, item.group) + Math.floor(i / kinds9.length) * 45, flat: true });
-            if (!v) continue;
-            const n = v.split(/\s+/).map(Number);
-            if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) continue;
-            const q: [number, number, number, number] = [n[0], n[1], n[0] + n[2], n[1] + n[3]];
-            b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q;
+    /* ★★★ 창은 **칸마다 제 것**이다(2026-09, 요청: "각 셀별로 맞춤 배율로 해야 해 —
+       트레이서도 있고 해서 · 다 동일하게 하지 말고") ────────────────────────────────────
+       위 두 ★ 은 '같은 몸의 컷·각이 창을 흔들면 안 된다'는 말이었고 그것은 지금도 옳다.
+       그런데 칸이 **딴 몸을 그리게 되면서**(변신 칸의 알·고치, 성큰의 사격 몸과 혓바닥)
+       모두를 한 창에 묶는 것은 뜻이 달라진다 — 가장 큰 몸에 창이 맞춰지므로 작은 몸은
+       칸 한가운데 점이 된다. 트레이서를 겹치는 칸도 마찬가지로 제 여백이 필요하다.
+       그래서 **칸(라벨)마다** 창을 따로 잰다: 그 칸이 시각을 돌며 그릴 수 있는 종류를 다
+       모아(몸 + 딸림 부품) 여덟 각의 합집합 상자를 낸다. 곧 한 칸 안에서는 창이 못 박혀
+       있고(돌려도·컷이 바뀌어도 배율이 그대로), 칸끼리는 제 몸에 맞는 배율로 선다. */
+    const boxOf = useMemo(() => {
+        const yaw0 = galleryYawOf(45, item.group);
+        /* 그 칸이 그릴 수 있는 종류 — 시각을 훑어 **칸에게 물어** 모은다(도록이 짐작하지 않는다). */
+        const byLabel = new Map<string, Set<string>>();
+        for (let i = 0; i < 60; i += 1) {
+            for (const c of docCellsOf9(item.kind, i * 0.2, yaw0)) {
+                let set9 = byLabel.get(c.label);
+                if (!set9) { set9 = new Set<string>(); byLabel.set(c.label, set9); }
+                set9.add(c.kind ?? item.kind);
+                if (c.attach) set9.add(c.attach);
+            }
         }
-        return b ? `${b[0]} ${b[1]} ${b[2] - b[0]} ${b[3] - b[1]}` : undefined;
+        const union = (kinds: string[]): string | undefined => {
+            let b: [number, number, number, number] | null = null;
+            for (const k of kinds) {
+                for (let j = 0; j < 8; j += 1) {
+                    const v = shapeFitBox(k, { rotDeg: yaw0 + j * 45, flat: true });
+                    if (!v) continue;
+                    const n = v.split(/\s+/).map(Number);
+                    if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) continue;
+                    const q: [number, number, number, number] = [n[0], n[1], n[0] + n[2], n[1] + n[3]];
+                    b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q;
+                }
+            }
+            return b ? `${b[0]} ${b[1]} ${b[2] - b[0]} ${b[3] - b[1]}` : undefined;
+        };
+        /* 트레이서를 겹치는 칸은 창을 한 뼘 **넓힌다** — 몸이 칸을 꽉 채우면 총알이 지날
+           자리가 없다(총구에서 오른위로 나간다). 넓히면 그만큼 몸이 작게 선다. */
+        const grow = (v: string | undefined, k: number): string | undefined => {
+            if (!v) return v;
+            const n = v.split(/\s+/).map(Number);
+            if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) return v;
+            const dw = n[2] * (k - 1) / 2;
+            const dh = n[3] * (k - 1) / 2;
+            return `${n[0] - dw} ${n[1] - dh} ${n[2] * k} ${n[3] * k}`;
+        };
+        const shot = new Set<string>();
+        for (const c of docCellsOf9(item.kind, 0, yaw0)) if (c.tracer) shot.add(c.label);
+        const out = new Map<string, string | undefined>();
+        for (const [label, set9] of byLabel) out.set(label, grow(union([...set9]), shot.has(label) ? 1.3 : 1));
+        return out;
     }, [item.kind, item.group]);
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
        요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다.
@@ -319,41 +279,9 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
-    /* ★ 칸은 **그 모델이 가진 움직임**으로 세운다 — 유닛은 자세 컷 셋(대기·이동·액션),
-       건물은 회전 칸·포탑 각·불빛·건설 단계(bldCells 의 ★). 핵탄두는 요잉 자체가 움직임이다
-       (요청: "핵탄두 회전도 넣어야하고" — 지도에서 떨어지며 두 바퀴 돈다). */
-    const anim = docAnimOf9(item.kind);
-    const cells: Cell[] = anim.pose
-        ? [
-            { label: "대기", props: { pose: cuts.idle }, own: true },
-            { label: "이동", props: { pose: cuts.move }, own: !!pk?.move },
-            { label: "액션", props: { pose: cuts.act }, own: !!pk?.atk },
-        ]
-        : anim.yawSpin
-            ? [
-                { label: "대기", props: {}, own: true },
-                /* 낙하 회전 — 지도와 같은 22.5도 칸(굽기 열쇠가 그 칸이다)으로 반시계로 돈다. */
-                { label: "낙하 회전", props: { rotDeg: yaw - Math.round(((t * 180) % 360) / 22.5) * 22.5 }, own: true },
-            ]
-            : bldCells(item.kind, t, yaw);
-    /* ★ **트레이서 칸**(요청) — 그 종류가 쏘는 무기가 있으면 한 칸 더 세운다. 그리는 것은
-       지도와 **같은 붓**이다(scplay 의 paintFxList9 를 DocTracer9 가 부른다) — 칸 왼아래가
-       총구, 오른위가 표적이고 한 발이 그 사이를 지난다. 무기가 없는 종류(근접·일꾼·건물
-       대부분)는 `docWeaponOf9` 가 null 이라 칸이 안 선다. */
-    const weapon = docWeaponOf9(item.kind);
-    if (weapon) cells.push({ label: `트레이서 · ${weapon}`, props: {}, own: true, tracer: true });
-    /* ★ **변신 칸**(물음: "공사고치, 알 변태완료나 럴커 버로우, 시즈모드 애니메이션도 도록에
-       나오면 좋겠는데 넣을 데가 있나?") — 넣을 데가 있다. 그 모델들은 이미 제 칸으로 도록에
-       서 있으니(공사 고치·알·럴커 알·변태 고치·버로우·시즈), 없던 것은 '무엇이 무엇으로
-       바뀌나'라는 **이음**뿐이다. scplay 의 차례표(docAnimOf9().morph)를 시각으로 돌려
-       한 칸에서 보여 준다 — 한 컷 1.1초.
-       ⚠ 창은 **차례 전체의 합집합**으로 못 박는다(아래 morphBox) — 안 그러면 알에서 몸으로
-         갈 때 배율이 튀어 '변신'이 아니라 '확대'로 읽힌다. */
-    if (anim.morph && anim.morph.length > 1) {
-        const mk = anim.morph[Math.floor(t / 1.1) % anim.morph.length];
-        const ml = SHAPE_GALLERY.find((g) => g.kind === mk)?.label ?? mk;
-        cells.push({ label: `변신 · ${ml}`, props: {}, own: true, kind: mk });
-    }
+    /* 칸은 scplay 가 세운다(위 ★★) — 대기 · 이동/활성 · 공격 · 액션 넷 중 **있는 것만**
+       온다. 여기서 하는 일은 그 값을 DocIcon9 에 그대로 내려 주는 것뿐이다. */
+    const cells = docCellsOf9(item.kind, t, yaw);
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
           <div className="scr-doc-popbox">
@@ -383,23 +311,31 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
             >
               {cells.map((c) => (
                 <figure key={c.label} className="scr-doc-popcell">
-                  {c.tracer ? <DocTracer9 kind={item.kind} t={t} className="scr-doc-svg" /> : <DocIcon9
-                    kind={c.kind ?? item.kind}
-                    rotDeg={c.props.rotDeg ?? yaw}
-                    pose={c.props.pose}
-                    spin={c.props.spin}
-                    headDeg={c.props.headDeg}
-                    lit={c.props.lit}
-                    stage={c.props.stage}
-                    blink={c.props.blink}
-                    flat
-                    fit
-                    fitBox={fitBox}
-                    className="scr-doc-svg"
-                  />}
+                  {/* ★ 트레이서는 **겹쳐** 그린다(요청: "트레이서는 공격 셀에 같이 넣어야 함") —
+                      제 칸으로 서던 때는 총알만 덩그러니 있어 무엇이 쏘는 것인지 안 보였다.
+                      모델 위에 한 발을 얹으면 총구에서 나가는 그림이 된다. 그리는 붓은
+                      지도와 같다(scplay 의 paintFxList9). */}
+                  <div className="scr-doc-popart">
+                    <DocIcon9
+                      kind={c.kind ?? item.kind}
+                      rotDeg={c.rotDeg ?? yaw}
+                      pose={c.pose}
+                      spin={c.spin}
+                      headDeg={c.headDeg}
+                      lit={c.lit}
+                      blink={c.blink}
+                      attach={c.attach}
+                      attachRot={c.attachRot}
+                      flat
+                      fit
+                      fitBox={boxOf.get(c.label)}
+                      className="scr-doc-svg"
+                    />
+                    {c.tracer && <DocTracer9 kind={item.kind} t={t} overlay className="scr-doc-shot" />}
+                  </div>
                   <figcaption>
                     {c.label}
-                    {!c.own && <span className="scr-doc-same">모델 없음 · 대기와 같음</span>}
+                    {c.note && <span className="scr-doc-same">{c.note}</span>}
                   </figcaption>
                 </figure>
               ))}
@@ -476,7 +412,10 @@ export default function GalleryScreen({ group, onGroup, onClose }: {
     const [open, setOpen] = useState<ShapeGalleryItem | null>(null);
     const rots = wide ? ROTS_WIDE : ROTS_NARROW;
     const rows = useMemo(
-        () => SHAPE_GALLERY.filter((g) => g.group === group && (race === "전체" || g.race === race)),
+        /* `hidden` 은 표에는 있되 목록에는 안 서는 종류다(요청: "성큰 발사·시즈모드 별도 목록
+           없어도 되고") — 탱크의 액션 칸과 성큰의 공격 칸이 이미 그것을 보여 준다. 표에서
+           지우지는 않는다(광택 표가 이 표로 종족을 찾는다 — scplay 의 그 ★). */
+        () => SHAPE_GALLERY.filter((g) => !g.hidden && g.group === group && (race === "전체" || g.race === race)),
         [group, race],
     );
     /* 갈래를 갈아타면 종족 고르기를 되돌린다 — '부가'에는 프로토스가 하나뿐이라, 고른
