@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { ArrowLeft, Play, RotateCw, X } from "lucide-react";
 import {
     SHAPE_GALLERY, DocIcon9, DocTracer9,
-    shapeMapTiles, shapeFitBox, galleryYawOf, docAnimOf9, docCellsOf9, type ShapeGalleryItem,
+    shapeMapTiles, shapeFitBox, galleryYawOf, docAnimOf9, docCellsOf9, docCellBox9, type ShapeGalleryItem,
 } from "scplay";
 
 /* 도록(모델 자료실) — 재생기가 쓰는 모델을 한 자리에서 본다(요청).
@@ -178,51 +178,14 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        그래서 **칸(라벨)마다** 창을 따로 잰다: 그 칸이 시각을 돌며 그릴 수 있는 종류를 다
        모아(몸 + 딸림 부품) 여덟 각의 합집합 상자를 낸다. 곧 한 칸 안에서는 창이 못 박혀
        있고(돌려도·컷이 바뀌어도 배율이 그대로), 칸끼리는 제 몸에 맞는 배율로 선다. */
-    const boxOf = useMemo(() => {
-        const yaw0 = galleryYawOf(45, item.group);
-        /* 그 칸이 그릴 수 있는 종류 — 시각을 훑어 **칸에게 물어** 모은다(도록이 짐작하지 않는다). */
-        const byLabel = new Map<string, Set<string>>();
-        for (let i = 0; i < 60; i += 1) {
-            for (const c of docCellsOf9(item.kind, i * 0.2, yaw0)) {
-                let set9 = byLabel.get(c.label);
-                if (!set9) { set9 = new Set<string>(); byLabel.set(c.label, set9); }
-                set9.add(c.kind ?? item.kind);
-                if (c.attach) set9.add(c.attach);
-                /* ★ 겹판(시즈 전환의 버팀다리·전환 포탑)도 그 칸이 그리는 몸이다(scplay DocCell9.parts 의 ⚠) —
-                   빼면 창이 차체에만 맞춰져 뻗은 다리와 뒤로 나온 포신이 잘린다. */
-                for (const pt of c.parts ?? []) set9.add(pt.kind);
-            }
-        }
-        const union = (kinds: string[]): string | undefined => {
-            let b: [number, number, number, number] | null = null;
-            for (const k of kinds) {
-                for (let j = 0; j < 8; j += 1) {
-                    const v = shapeFitBox(k, { rotDeg: yaw0 + j * 45, flat: true });
-                    if (!v) continue;
-                    const n = v.split(/\s+/).map(Number);
-                    if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) continue;
-                    const q: [number, number, number, number] = [n[0], n[1], n[0] + n[2], n[1] + n[3]];
-                    b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : q;
-                }
-            }
-            return b ? `${b[0]} ${b[1]} ${b[2] - b[0]} ${b[3] - b[1]}` : undefined;
-        };
-        /* 트레이서를 겹치는 칸은 창을 한 뼘 **넓힌다** — 몸이 칸을 꽉 채우면 총알이 지날
-           자리가 없다(총구에서 오른위로 나간다). 넓히면 그만큼 몸이 작게 선다. */
-        const grow = (v: string | undefined, k: number): string | undefined => {
-            if (!v) return v;
-            const n = v.split(/\s+/).map(Number);
-            if (n.length !== 4 || n.some((x) => !Number.isFinite(x))) return v;
-            const dw = n[2] * (k - 1) / 2;
-            const dh = n[3] * (k - 1) / 2;
-            return `${n[0] - dw} ${n[1] - dh} ${n[2] * k} ${n[3] * k}`;
-        };
-        const shot = new Set<string>();
-        for (const c of docCellsOf9(item.kind, 0, yaw0)) if (c.tracer) shot.add(c.label);
-        const out = new Map<string, string | undefined>();
-        for (const [label, set9] of byLabel) out.set(label, grow(union([...set9]), shot.has(label) ? 1.3 : 1));
-        return out;
-    }, [item.kind, item.group]);
+    /* ★★ **창을 재는 일은 scplay 가 한다**(2026-09, 요청: "재생기의 로직을 그대로 가져와서
+       보이게해줘 그래야 앞으로 두쪽 수정을 안할수 있어") ───────────────────────────────────
+       여기 있던 90줄은 '그 칸이 무엇을 그리나'를 앱이 다시 헤아리는 셈이었다 — 그런데 그것을
+       아는 것은 `docCellsOf9`(scplay)뿐이라, 칸에 무엇이 하나 늘 때마다 두 쪽을 맞춰야 했다
+       (겹판을 더할 때 한 번 · 표적 인형을 더하며 또 한 번). 이제 `docCellBox9` 한 문이 낸다:
+       칸마다 · 그 칸이 그릴 수 있는 것 전부(몸·딸림 부품·겹판·**표적**)의 여덟 각 합집합 ·
+       치우친 것은 그 몫만큼 밀어서. 앱이 하는 일은 받은 표를 내려 주는 것뿐이다. */
+    const boxOf = useMemo(() => docCellBox9(item.kind, item.group), [item.kind, item.group]);
     /* 자유 요잉 — 드래그한 픽셀을 그대로 도로 바꾼다(0.6도/px). 각을 안 죈다:
        요청이 "각도 제한 없이"이고, ShapeIcon은 어느 각이든 22.5도 칸으로 갈무리해 굽는다.
        ★ 부호는 **빼기**다(지적: "드래그 → 요잉 방향 반대로") — 손으로 만지는 것은 카메라가
@@ -361,6 +324,9 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                       headDeg={c.headDeg ?? c.attachRot}
                       /* 그 칸이 그릴 갈래 — 지상·대공이 다른 종류는 칸마다 제 무기다(scplay docAtkFx9). */
                       fx={c.fx}
+                      /* ★ 표적까지의 거리(16-상자 자) — 칸이 세운 인형이 앉은 그 자리이고,
+                         줄기가 닿는 그 거리다(scplay DocCell9.tgt 의 ★★). */
+                      tgt={c.tgt}
                       className="scr-doc-shot"
                     />}
                   </div>
