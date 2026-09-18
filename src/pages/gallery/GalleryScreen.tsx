@@ -327,6 +327,9 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                       /* ★ 표적까지의 거리(16-상자 자) — 칸이 세운 인형이 앉은 그 자리이고,
                          줄기가 닿는 그 거리다(scplay DocCell9.tgt 의 ★★). */
                       tgt={c.tgt}
+                      /* ★ 대공 칸인가 — 총구 앵커가 채널마다 갈리는 종류(레이스·골리앗·
+                         스카우트)가 이 값으로 제 발사관을 고른다(scplay MUZZLE_AIR9). */
+                      air={c.air}
                       className="scr-doc-shot"
                     />}
                   </div>
