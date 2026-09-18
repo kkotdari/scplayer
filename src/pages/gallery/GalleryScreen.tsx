@@ -240,6 +240,35 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
         setYaw(d.yaw - dx * 0.6);
     };
     const onUp = (): void => { drag.current = null; };
+    /* ★ **쓸어내려 닫기**(2026-09, 요청: "모바일에서 팝업 쓸어내려 닫기 구현") — 손가락(터치)으로 팝업 상자를
+       아래로 끌면 상자가 따라 내려오다가 문턱(SWIPE_CLOSE)을 넘으면 닫힌다. 요잉 끌기(무대의 onMove)는 가로가
+       이길 때만 포인터를 잡으므로 세로 손짓은 여기로 흘러온다. 상자 안이 굴러 있으면(scrollTop > 0) 그 손짓은
+       스크롤이라 안 잡는다 — 맨 위에서 더 내리는 손짓만 '닫기'다. 마우스는 안 건다(pointerType 터치만). */
+    const SWIPE_CLOSE = 110;
+    const swipe = useRef<{ y: number; x: number; id: number; on: boolean } | null>(null);
+    const [pull, setPull] = useState(0);
+    const onSwipeDown = (e: React.PointerEvent<HTMLDivElement>): void => {
+        if (e.pointerType !== "touch") return;
+        if (e.currentTarget.scrollTop > 0) return;
+        swipe.current = { y: e.clientY, x: e.clientX, id: e.pointerId, on: false };
+    };
+    const onSwipeMove = (e: React.PointerEvent<HTMLDivElement>): void => {
+        const sw = swipe.current;
+        if (!sw) return;
+        const dy = e.clientY - sw.y; const dx = e.clientX - sw.x;
+        if (!sw.on) {
+            if (Math.abs(dx) > SLOP && Math.abs(dx) >= Math.abs(dy)) { swipe.current = null; return; }   // 가로 — 요잉의 몫
+            if (dy <= SLOP) return;
+            sw.on = true;
+        }
+        setPull(Math.max(0, dy));
+    };
+    const onSwipeEnd = (): void => {
+        const sw = swipe.current;
+        swipe.current = null;
+        if (sw?.on && pull >= SWIPE_CLOSE) { onClose(); return; }
+        setPull(0);
+    };
     useEffect(() => {
         const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") onClose(); };
         window.addEventListener("keydown", onKey);
@@ -265,7 +294,14 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     const cells = docCellsOf9(item.kind, t, yaw);
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-          <div className="scr-doc-popbox">
+          <div
+            className="scr-doc-popbox"
+            style={pull > 0 ? { transform: `translateY(${pull}px)`, opacity: Math.max(0.35, 1 - pull / 400), transition: "none" } : undefined}
+            onPointerDown={onSwipeDown}
+            onPointerMove={onSwipeMove}
+            onPointerUp={onSwipeEnd}
+            onPointerCancel={onSwipeEnd}
+          >
             <header className="scr-doc-pophead">
               <h3>{item.label}</h3>
               <button
@@ -340,7 +376,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
                 </figure>
               ))}
             </div>
-            <p className="scr-doc-pophint">좌우로 끌면 돌아갑니다 · 자동 회전 단추로 스스로 돌립니다</p>
+            <p className="scr-doc-pophint">좌우로 끌면 돌아갑니다 · 자동 회전 단추로 스스로 돌립니다{wide ? "" : " · 아래로 쓸어내리면 닫힙니다"}</p>
           </div>
         </div>
     );
@@ -373,7 +409,10 @@ function GalleryRow({ item, rots, wide, onMotion }: {
           </header>
           <div className={`scr-doc-angles${wide ? "" : " is-narrow"}`}>
             {rots.map((deg) => (
-              <div key={deg} className="scr-doc-angle">
+              /* ★ 그림을 누르면 바로 팝업이다(2026-09, 요청: "도록에서 이미지 클릭 시 바로 팝업 뜨게") —
+                 '모션 보기' 단추까지 손이 안 가도 되게 각도 칸 자체가 문이다. */
+              <div key={deg} className="scr-doc-angle is-link" role="button" tabIndex={0} onClick={onMotion}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onMotion(); } }}>
                 {near
                   ? <DocIcon9 kind={item.kind} rotDeg={galleryYawOf(deg, item.group)} flat fit className="scr-doc-svg" />
                   /* 아직 안 구운 자리 — 다 구운 칸과 **같은 높이**를 차지해야 스크롤이

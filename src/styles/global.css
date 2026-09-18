@@ -2474,6 +2474,13 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 .scr-doc-angle > span { font-size: 10px; color: var(--text-dim); }
 
+/* 각도 칸은 곧 팝업의 문이다(요청: "이미지 클릭 시 바로 팝업") — 손이 닿는 자리임을 보여 준다. */
+.scr-doc-angle.is-link { cursor: pointer; }
+.scr-doc-angle.is-link:hover { border-color: var(--point); }
+
+/* 쓸어내려 닫기(모바일) — 상자가 손가락을 따라 내려오고, 놓으면 제자리로 돌아온다. */
+.scr-doc-popbox { transition: transform 0.18s ease-out, opacity 0.18s ease-out; touch-action: pan-y; }
+
 /* 모델 칸의 높이는 **못 박는다** — SVG는 제 안의 창(viewBox)만 알고 바깥 높이를 스스로
    못 정한다. width만 주면 칸이 납작하게 눌려 모델이 점이 된다(첫 판이 그랬다). */
 /* ★ align-self: stretch가 있어야 한다 — 칸이 `align-items: center`인 세로 플렉스라
