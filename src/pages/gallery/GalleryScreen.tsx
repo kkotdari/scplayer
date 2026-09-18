@@ -269,6 +269,48 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
         if (sw?.on && pull >= SWIPE_CLOSE) { onClose(); return; }
         setPull(0);
     };
+    /* ★★ **굴릴 것이 있는 팝업에서는 브라우저가 손짓을 가로챈다**(2026-09, 지적: "도록 팝업 스크롤 있으면 아래로
+       쓸어서 닫기 안 됨") — 상자에 `touch-action: pan-y` 가 걸려 있어 내용이 상자보다 길면 세로 손짓은 **브라우저의
+       스크롤**이 되고, 스크롤이 시작되는 순간 pointercancel 이 와서 위 onSwipeMove 가 다시는 안 불린다(맨 위에서
+       더 내리는 손짓도 '스크롤 시도'라 같은 길로 죽는다). 내용이 짧으면 굴릴 것이 없어 브라우저가 손을 안 대므로
+       거기서만 닫기가 됐다. 그래서 **맨 위에서 아래로 끄는 첫 touchmove 를 non-passive 로 잡아 기본 동작을 끊는다**
+       — 그러면 브라우저가 스크롤을 안 시작하고 포인터 사건이 계속 와서 종전 손잡이가 그대로 돈다. 위로 끄는
+       손짓(내용 스크롤)과 굴러 있는 상태는 안 건드린다(터치만 · 마우스 휠은 무관). */
+    const boxRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        const el = boxRef.current;
+        if (!el) return undefined;
+        let st: { y: number; x: number; top: boolean; on: boolean } | null = null;
+        const onTS = (e: TouchEvent): void => {
+            const t = e.touches[0];
+            if (!t || e.touches.length !== 1) { st = null; return; }
+            st = { y: t.clientY, x: t.clientX, top: el.scrollTop <= 0, on: false };
+        };
+        const onTM = (e: TouchEvent): void => {
+            if (!st) return;
+            const t = e.touches[0];
+            if (!t) return;
+            const dy = t.clientY - st.y; const dx = t.clientX - st.x;
+            if (!st.on) {
+                if (!st.top) { st = null; return; }
+                if (Math.abs(dx) > SLOP && Math.abs(dx) >= Math.abs(dy)) { st = null; return; }   // 가로 — 요잉의 몫
+                if (dy <= SLOP) return;   // 위로(내용 스크롤)거나 아직 모른다
+                st.on = true;
+            }
+            if (e.cancelable) e.preventDefault();
+        };
+        const onTE = (): void => { st = null; };
+        el.addEventListener("touchstart", onTS, { passive: true });
+        el.addEventListener("touchmove", onTM, { passive: false });
+        el.addEventListener("touchend", onTE);
+        el.addEventListener("touchcancel", onTE);
+        return () => {
+            el.removeEventListener("touchstart", onTS);
+            el.removeEventListener("touchmove", onTM);
+            el.removeEventListener("touchend", onTE);
+            el.removeEventListener("touchcancel", onTE);
+        };
+    }, []);
     useEffect(() => {
         const onKey = (e: KeyboardEvent): void => { if (e.key === "Escape") onClose(); };
         window.addEventListener("keydown", onKey);
@@ -295,6 +337,7 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
     return (
         <div className="scr-doc-pop" role="dialog" aria-modal="true" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
           <div
+            ref={boxRef}
             className="scr-doc-popbox"
             style={pull > 0 ? { transform: `translateY(${pull}px)`, opacity: Math.max(0.35, 1 - pull / 400), transition: "none" } : undefined}
             onPointerDown={onSwipeDown}
