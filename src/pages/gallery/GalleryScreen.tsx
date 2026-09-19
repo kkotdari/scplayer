@@ -200,7 +200,8 @@ function MotionPopup({ item, onClose }: { item: ShapeGalleryItem; onClose: () =>
        각을 프레임마다 **벽시계 몫만큼** 올린다(초당 36도 = 한 바퀴 10초). 프레임 수로 올리면
        기기마다 도는 속도가 달라진다. 손으로 잡는 순간 멈춘다 — 끌던 각과 도는 각이 싸우면
        손짓이 미끄러진다. */
-    const [auto, setAuto] = useState(false);
+    // 기본은 **켬**(2026-09, 요청: "도록 팝업 자동회전을 기본으로") — 손이 잡으면 그때 멈춘다.
+    const [auto, setAuto] = useState(true);
     useEffect(() => {
         if (!auto)
             return undefined;
