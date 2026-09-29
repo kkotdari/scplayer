@@ -1,10 +1,9 @@
 import React, { useCallback, useContext, useMemo, useState, type MouseEvent, type PointerEvent } from "react";
 import { formatWhen } from "../../utils/date";
-import { ReplayModule, SCENE_LINK_KEYS9, sceneLinkOf9, type MotionBase } from "scplay";
+import { ReplayModule, SCENE_LINK_KEYS9, sceneLinkOf9, sceneLinkQueryOf9, type MotionBase } from "scplay";
 import { api } from "../../api/client";
 import RosterSide, { isMeleeGame, outcomeFor, resolveSlotName } from "./GameResultSides";
 import Avatar from "../../components/common/Avatar";
-import SceneShareButton from "./SceneShareButton";
 import { GameDetailCloseContext } from "./gameDetailClose";
 import { useReplayMap } from "scplay";
 import { cleanMapName } from "../../utils/mapName";
@@ -99,6 +98,26 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         return `${o1 === "win" ? 1 : 2}팀 승`;
     })();
     const mapName = cleanMapName(gameResult.mapName);
+    const clockKey = String(gameResult.matchNo || gameResult.id);
+    /* ★ 장면 공유 — 재생기의 onShare 콜백이다(2026-09, 요청: "공유부터 onShare로 옮겨줘"). 버튼·단축키(X)·완료 표시는
+       재생기가 그리고, 이 앱이 지는 것은 **링크를 짓고 보내는 일**뿐이다: 쿼리는 scplay `sceneLinkQueryOf9` 가 통째로
+       내고(어느 값을 안 싣나 · 중계·추적 중엔 `&tr=` 만 싣나는 다 그쪽 규약) 여기는 지금 경로 뒤에 붙일 뿐이다. 보내기는
+       기기의 공유 시트(navigator.share)를 먼저 쓰고, 없거나 거절되면 링크를 복사한다. 돌려주는 글이 곧 완료 표시다
+       ("공유됨" · "링크 복사됨") — 클립보드까지 막히면 아무것도 안 돌려줘 표시가 안 뜬다.
+       옛 길(SceneShareButton 을 shareNode 슬롯에 꽂고 X 키를 앱이 따로 듣던 것)은 걷었다. */
+    const onShare = useCallback(async (): Promise<string | void> => {
+      const url = `${window.location.origin}${window.location.pathname}?${sceneLinkQueryOf9(clockKey).toString()}`;
+      const copy = async (): Promise<string> => { await navigator.clipboard.writeText(url); return "링크 복사됨"; };
+      try {
+        if (typeof navigator.share === "function") {
+          await navigator.share({ title: `${mapName || "경기"} 장면`, url });
+          return "공유됨";
+        }
+        return await copy();
+      } catch {
+        try { return await copy(); } catch { return undefined; }
+      }
+    }, [clockKey, mapName]);
     const minutes = gameResult.durationSeconds != null
         ? Math.round(gameResult.durationSeconds / 60) : null;
     const melee = isMeleeGame({ matchType: gameResult.matchType, team1: t1, team2: t2 });
@@ -165,13 +184,8 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         }}
         avatars={false}
         sceneLink={sceneLink}
-        clockKey={String(gameResult.matchNo || gameResult.id)}
-        shareNode={(
-          <SceneShareButton
-            clockKey={String(gameResult.matchNo || gameResult.id)}
-            title={`${mapName || "경기"} 장면`}
-          />
-        )}
+        clockKey={clockKey}
+        onShare={onShare}
         onDetailClose={detailClose ?? undefined}
         soleView={soleViewNow}
         loadUnitTracks={() => api.getGameUnitTracks(gameResult.id)
