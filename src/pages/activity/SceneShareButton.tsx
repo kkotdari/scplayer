@@ -1,49 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Share2 } from "lucide-react";
-import { playbackClockOf, playbackSpeedOf, playbackTrackOf, playbackViewOf } from "scplay";
+import { sceneLinkQueryOf9 } from "scplay";
 
 /** 장면 공유 버튼(요청: "scplayer에도 장면 공유 버튼 — 카카오 말고 공유로") ──────────
- *  재생기가 경기별로 적어 두는 지금 장면(시각·배속·배율·가운데 자리·각도·추적)을 읽어
- *  받는 쪽(GameResultStory의 linkQuery)이 아는 규약 그대로 링크에 싣는다:
- *    <지금 경로>?t=<초>&s=<배속>&z=&cx=&cy=&a=<각도>&tr=<추적 아이디 | * = 자동 중계>
- *  경기는 **경로**가 가리킨다(/public/playlist/list/2/games/10) — 옛 group/item 쿼리는
- *  안 싣는다(지적: "쓸데없는 파라미터"). 기본값(배속 1·배율 1·각도 90)도 안 싣는다.
+ *  링크의 쿼리(t·s·z·cx·cy·a·tr)는 **재생기가 통째로 만든다**(scplay `sceneLinkQueryOf9` — 2026-09, 요청:
+ *  "파라미터공유하는거 scplay에서 파라미터를 싹 만들어서 주고 그걸 인자로 받아서 각 사용처에서 그걸 전달하는 식으로
+ *  하면 안되나 가공 없이"). 어느 값을 기본값으로 안 싣나 · 중계·추적 중에는 자리 대신 `&tr=` 을 싣나는 다 그쪽 규약이고,
+ *  여기는 그것을 **지금 경로 뒤에 그대로 붙일 뿐**이다. 경기는 경로가 가리킨다(/public/playlist/list/2/games/10 —
+ *  옛 group/item 쿼리는 안 싣는다 · 지적: "쓸데없는 파라미터"). 받는 쪽은 GameResultStory 가 `sceneLinkOf9` 로 푼다.
  *  보내기는 기기의 공유 시트(navigator.share)를 먼저 쓰고, 없거나 거절되면 링크를 복사한다. */
 export default function SceneShareButton({ clockKey, title }: {
   clockKey: string; title: string;
 }) {
   const [done, setDone] = useState<null | "shared" | "copied">(null);
-  const buildUrl = (): string => {
-    const q = new URLSearchParams();
-    const t = playbackClockOf.get(clockKey);
-    if (t !== undefined && t > 0) q.set("t", String(Math.floor(t)));
-    const s = playbackSpeedOf.get(clockKey);
-    if (s !== undefined && s > 1) q.set("s", String(s));
-    const v = playbackViewOf.get(clockKey);
-    if (v) {
-      /* ★ 중계(자동)든 개인 추적이든 카메라를 기계가 쥔 채 보낸 장면은 자리(z·cx·cy)가 **비어 온다**(scplay
-         playbackViewOf 의 ★ — 요청: "중계 활성화상태에서 공유시 위치 좌표 전송 금지" → "중계는 자동이든 한사람이든
-         사용중이면 좌표, 배율 공유안하고 대신 중계 파라미터 공유하기로 변경") — 그때는 각도만 싣고 아래 &tr= 이
-         누가 쥐고 있는지를 싣는다. 없는 값은 기본값으로 읽어 아래 문이 저절로 닫힌다. */
-      const z = v.z ?? 1;
-      const cx = v.cx ?? 0.5;
-      const cy = v.cy ?? 0.5;
-      if (z > 1.001) q.set("z", z.toFixed(2));
-      /* 가운데 자리도 기본값이면 안 싣는다(지적: stargayte처럼 기본값은 빼기) — 1배에서는 팬이 없어
-         가운데가 뜻이 없고, 확대해도 지도 한가운데(0.5, 0.5)면 받는 쪽 기본값과 같다. */
-      const centered = Math.abs(cx - 0.5) < 0.0005 && Math.abs(cy - 0.5) < 0.0005;
-      if (z > 1.001 && !centered) {
-        q.set("cx", cx.toFixed(3));
-        q.set("cy", cy.toFixed(3));
-      }
-      if (Math.round(v.deg) !== 90) q.set("a", String(Math.round(v.deg)));
-    }
-    /* 카메라 임자(&tr=) — 개인 추적이면 그 사람의 게임 아이디, 자동 중계면 `*`(scplay `CAST_AUTO_LINK9` · 받는 쪽
-       GameResultStory 가 그 값을 알아본다). 재생기가 적어 준다(scplay 2026-09: 표만 있고 적는 자리가 없었다). */
-    const tr = playbackTrackOf.get(clockKey);
-    if (tr) q.set("tr", tr);
-    return `${window.location.origin}${window.location.pathname}?${q.toString()}`;
-  };
+  const buildUrl = (): string =>
+    `${window.location.origin}${window.location.pathname}?${sceneLinkQueryOf9(clockKey).toString()}`;
   const copy = async (url: string): Promise<void> => {
     await navigator.clipboard.writeText(url);
     setDone("copied");

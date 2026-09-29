@@ -8,6 +8,7 @@ import { cleanMapName } from "../../utils/mapName";
 import { forceLightTheme } from "../../utils/theme";
 import type { ExtShareGame, ExtShareList } from "../../types";
 import { lineupTitle } from "../../utils/lineup";
+import { SCENE_LINK_KEYS9 } from "scplay";
 const PASS_KEY = "stargayte_extshare_pass";
 function readPasses(): Record<string, string> {
     try {
@@ -144,7 +145,7 @@ function writeUrl(r: Route, push: boolean): void {
     let search = window.location.search;
     if (push && search) {
         const q = new URLSearchParams(search);
-        for (const k of ["t", "s", "z", "cx", "cy", "a", "tr"]) q.delete(k);
+        for (const k of SCENE_LINK_KEYS9) q.delete(k);
         const qs = q.toString();
         search = qs ? `?${qs}` : "";
     }

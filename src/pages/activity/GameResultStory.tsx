@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useMemo, useState, type MouseEvent, type PointerEvent } from "react";
 import { formatWhen } from "../../utils/date";
-import { ReplayModule, PLAYBACK_ZOOM_MAX, type MotionBase } from "scplay";
+import { ReplayModule, SCENE_LINK_KEYS9, sceneLinkOf9, type MotionBase } from "scplay";
 import { api } from "../../api/client";
 import RosterSide, { isMeleeGame, outcomeFor, resolveSlotName } from "./GameResultSides";
 import Avatar from "../../components/common/Avatar";
@@ -38,36 +38,13 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
                 return null;
             return q;
         }
-        return ["t", "s", "z", "cx", "cy", "a", "tr"].some((k) => q.has(k)) ? q : null;
+        return SCENE_LINK_KEYS9.some((k) => q.has(k)) ? q : null;
     }, []);
-    const initialSec = useMemo(() => {
-        const v = Number(linkQuery?.get("t"));
-        return Number.isFinite(v) && v > 0 ? Math.floor(v) : undefined;
-    }, [linkQuery]);
-    const initialSpeed = useMemo(() => {
-        const v = Number(linkQuery?.get("s"));
-        return Number.isFinite(v) && v > 1 ? v : undefined;
-    }, [linkQuery]);
-    const initialView = useMemo(() => {
-        if (!linkQuery)
-            return undefined;
-        const num = (k: string, dflt: number): number => {
-            const raw9 = linkQuery.get(k);
-            if (raw9 === null || raw9.trim() === "")
-                return dflt;
-            const v = Number(raw9);
-            return Number.isFinite(v) ? v : dflt;
-        };
-        if (linkQuery.get("z") === null && linkQuery.get("cx") === null
-            && linkQuery.get("a") === null)
-            return undefined;
-        return {
-            z: Math.min(PLAYBACK_ZOOM_MAX, Math.max(1, num("z", 1))),
-            cx: Math.min(1, Math.max(0, num("cx", 0.5))),
-            cy: Math.min(1, Math.max(0, num("cy", 0.5))),
-            deg: num("a", 90),
-        };
-    }, [linkQuery]);
+    /* 장면 한 벌은 **재생기가 푼다**(scplay `sceneLinkOf9` — 2026-09, 요청: "파라미터공유하는거 scplay에서 파라미터를
+       싹 만들어서 주고 그걸 인자로 받아서 각 사용처에서 그걸 전달하는 식으로 하면 안되나 가공 없이") — 값의 자(배율
+       상한·분수 죔·`*` = 자동 중계·로스터에 있는 이름만 추적)는 다 그쪽이 알고, 여기는 '이 판의 링크인가'(위 linkQuery)만
+       가려 **그대로 넘긴다**. */
+    const sceneLink = useMemo(() => (linkQuery ? sceneLinkOf9(linkQuery) : null), [linkQuery]);
     const stampText = formatWhen(gameResult.gameStartedAt ?? gameResult.date, { clock: true });
     const slots = useMemo(() => {
         const all = [...team1, ...team2];
@@ -88,18 +65,6 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         add(team2, 2);
         return rows;
     }, [team1, team2, memberOf]);
-    const initialTrack = useMemo(() => {
-        const raw9 = linkQuery?.get("tr");
-        if (!raw9)
-            return undefined;
-        /* ★ `&tr=*` 는 사람이 아니라 **자동 중계**다(scplay `CAST_AUTO_LINK9` — 2026-09, 요청: "중계는 자동이든
-           한사람이든 사용중이면 좌표, 배율 공유안하고 대신 중계 파라미터 공유하기로 변경") — 로스터에서 찾지 않고
-           그대로 넘겨 재생기가 중계를 켠 채로 열게 한다. ⚠ 그 상수를 import 하지 않는 까닭: 락이 옛 scplay 를
-           가리키는 동안에도 컴파일되어야 한다(`??` 꼴로 옛 타입을 견디는 그 규약). 값을 바꾸면 여기도 함께다. */
-        if (raw9 === "*")
-            return raw9;
-        return slots.some((s9) => s9.raw === raw9) ? raw9 : undefined;
-    }, [linkQuery, slots]);
     const bases: MotionBase[] = useMemo(() => slots.map((s) => {
         const nameLc = normalizeSearchText(s.name);
         const hit = highlightMemberIds?.has(s.slot.memberId)
@@ -199,8 +164,7 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
           ) : null,
         }}
         avatars={false}
-        initialSec={initialSec} initialSpeed={initialSpeed}
-        initialView={initialView} initialTrack={initialTrack}
+        sceneLink={sceneLink}
         clockKey={String(gameResult.matchNo || gameResult.id)}
         shareNode={(
           <SceneShareButton
