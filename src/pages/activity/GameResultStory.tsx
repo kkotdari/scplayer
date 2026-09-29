@@ -92,6 +92,12 @@ export default function GameResultStory({ gameResult, team1, team2, result, memb
         const raw9 = linkQuery?.get("tr");
         if (!raw9)
             return undefined;
+        /* ★ `&tr=*` 는 사람이 아니라 **자동 중계**다(scplay `CAST_AUTO_LINK9` — 2026-09, 요청: "중계는 자동이든
+           한사람이든 사용중이면 좌표, 배율 공유안하고 대신 중계 파라미터 공유하기로 변경") — 로스터에서 찾지 않고
+           그대로 넘겨 재생기가 중계를 켠 채로 열게 한다. ⚠ 그 상수를 import 하지 않는 까닭: 락이 옛 scplay 를
+           가리키는 동안에도 컴파일되어야 한다(`??` 꼴로 옛 타입을 견디는 그 규약). 값을 바꾸면 여기도 함께다. */
+        if (raw9 === "*")
+            return raw9;
         return slots.some((s9) => s9.raw === raw9) ? raw9 : undefined;
     }, [linkQuery, slots]);
     const bases: MotionBase[] = useMemo(() => slots.map((s) => {
