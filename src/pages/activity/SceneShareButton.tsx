@@ -21,16 +21,22 @@ export default function SceneShareButton({ clockKey, title }: {
     if (s !== undefined && s > 1) q.set("s", String(s));
     const v = playbackViewOf.get(clockKey);
     if (v) {
-      if (v.z > 1.001) q.set("z", v.z.toFixed(2));
+      /* ★ 중계가 켜진 채 보낸 장면은 자리(z·cx·cy)가 **비어 온다**(scplay playbackViewOf 의 ★ — 요청: "중계 활성화상태에서
+         공유시 위치 좌표 전송 금지") — 그때는 각도만 싣는다. 없는 값은 기본값으로 읽어 아래 문이 저절로 닫힌다. */
+      const z = v.z ?? 1;
+      const cx = v.cx ?? 0.5;
+      const cy = v.cy ?? 0.5;
+      if (z > 1.001) q.set("z", z.toFixed(2));
       /* 가운데 자리도 기본값이면 안 싣는다(지적: stargayte처럼 기본값은 빼기) — 1배에서는 팬이 없어
          가운데가 뜻이 없고, 확대해도 지도 한가운데(0.5, 0.5)면 받는 쪽 기본값과 같다. */
-      const centered = Math.abs(v.cx - 0.5) < 0.0005 && Math.abs(v.cy - 0.5) < 0.0005;
-      if (v.z > 1.001 && !centered) {
-        q.set("cx", v.cx.toFixed(3));
-        q.set("cy", v.cy.toFixed(3));
+      const centered = Math.abs(cx - 0.5) < 0.0005 && Math.abs(cy - 0.5) < 0.0005;
+      if (z > 1.001 && !centered) {
+        q.set("cx", cx.toFixed(3));
+        q.set("cy", cy.toFixed(3));
       }
       if (Math.round(v.deg) !== 90) q.set("a", String(Math.round(v.deg)));
     }
+    /* 추적 중인 사람(&tr=) — 재생기가 이제 실제로 적어 준다(scplay 2026-09: 표만 있고 적는 자리가 없었다). */
     const tr = playbackTrackOf.get(clockKey);
     if (tr) q.set("tr", tr);
     return `${window.location.origin}${window.location.pathname}?${q.toString()}`;
