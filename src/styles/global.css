@@ -75,9 +75,9 @@
   --fs-hero-2: var(--pc-fs-hero-2);
   --fs-hero-3: var(--pc-fs-hero-3);
   
-  --content-max: 860px;
+  --content-max: 1440px;
   
-  --list-content-max: 860px;
+  --list-content-max: 1440px;
   
   --rail-w: 0px;
 
@@ -623,18 +623,6 @@ html:not(.scr-light-theme) .scr-app-hasbg .scr-header {
   
   
   .scr-light-theme .scr-header { border-right-color: rgba(0, 0, 0, 0.30); }
-}
-@media (min-width: 1160px) {
-
-  .scr-main:has(.scr-stats-screen-v2) { max-width: 1440px; }
-}
-@media (min-width: 1160px) {
-
-  .scr-main:has(.scr-league-screen) { max-width: 1440px; }
-}
-@media (min-width: 1160px) {
-
-  .scr-main:has(.scr-model-screen) { max-width: 1440px; }
 }
 
 .scr-light-theme .scr-inapp-notice { box-shadow: 0 8px 26px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(0,0,0,0.08); }
@@ -2244,7 +2232,7 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 .scr-extshare-main {
   --extshare-pad-x: 10px;
-  max-width: 1100px; margin: 0 auto; padding: 18px var(--extshare-pad-x) 48px;
+  max-width: var(--content-max); margin: 0 auto; padding: 18px var(--extshare-pad-x) 48px;
 }
 
 
