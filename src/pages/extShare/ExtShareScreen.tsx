@@ -341,7 +341,7 @@ export default function ExtShareScreen() {
           {!doc && listId !== null && current?.locked && !pass && (<form className="scr-extshare-gate" onSubmit={(e) => { e.preventDefault(); void submitPass(); }}>
               <Lock size={22}/>
               <p>이 목록은 비밀번호가 필요합니다.</p>
-              <input type="password" value={typed} autoFocus onChange={(e) => setTyped(e.target.value)} placeholder="비밀번호"/>
+              <input type="password" value={typed} autoFocus={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches} onChange={(e) => setTyped(e.target.value)} placeholder="비밀번호"/>
               <button type="submit" disabled={busy || !typed}>
                 {busy ? <Spinner size={14}/> : "들어가기"}
               </button>

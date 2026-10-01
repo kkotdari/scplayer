@@ -2327,7 +2327,8 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 .scr-extshare-gate p { margin: 0; font-size: 13px; }
 
 .scr-extshare-gate input {
-  width: min(260px, 80vw); padding: 9px 12px; font-size: 14px;
+  /* 16px 아래면 iOS 사파리가 포커스 때 화면을 확대한다(지적: "목록진입시 모바일에서 암호인풋칸 포커싱되면서 화면이 확대됨"). */
+  width: min(260px, 80vw); padding: 9px 12px; font-size: 16px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text);
 }
 
