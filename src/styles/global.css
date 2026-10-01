@@ -2319,6 +2319,14 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
 
 
 
+/* 판 화면 머리를 폰에서 죈다(요청: "맵과 결과표시 부분 높이 좀 컴팩트하게") — 제목 줄 아래 여백 16 → 6 · 제목 줄 안 아래 14 → 8 ·
+   맵 이름 줄 아래 8 → 0 · 그 줄과 판 사이 6 → 4. 글자 크기는 그대로다. */
+@media (max-width: 1159px) {
+  .scr-extshare .scr-crumb { padding-bottom: 8px; margin-bottom: 6px; }
+  .scr-extshare .scr-story-map { gap: 4px; }
+  .scr-extshare .scr-story-map-head { margin-bottom: 0; }
+}
+
 .scr-extshare-gate {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding: 48px 16px; color: var(--text-dim);
