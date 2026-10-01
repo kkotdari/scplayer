@@ -4,6 +4,46 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
+    <!-- 인앱 브라우저(카카오톡·라인·인스타·페이스북·네이버 …)에서 열리면 기본 브라우저로 넘긴다.
+         앱이 뜨기 전에 돌아야 하므로 머리의 인라인 스크립트다(모듈 아님).
+         · 카카오톡: kakaotalk://web/openExternal (iOS·안드로이드 둘 다) → 남은 인앱 창은 닫는다.
+         · 라인: ?openExternalBrowser=1 (라인이 스스로 외부 브라우저로 연다).
+         · 그 밖의 안드로이드 인앱(웹뷰): intent:// 로 크롬을 연다.
+         · iOS 의 다른 인앱은 외부로 넘기는 길이 없다 — 그대로 둔다.
+         한 탭에서 한 번만 시도한다(sessionStorage) — 실패해도 되풀이로 갇히지 않게. -->
+    <script>
+      (function () {
+        try {
+          var ua = navigator.userAgent || "";
+          var url = location.href;
+          var KEY = "scp-ext-tried";
+          if (sessionStorage.getItem(KEY)) return;
+          var ios = /iPhone|iPad|iPod/i.test(ua);
+          var android = /Android/i.test(ua);
+          if (/KAKAOTALK/i.test(ua)) {
+            sessionStorage.setItem(KEY, "1");
+            location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(url);
+            setTimeout(function () {
+              location.href = ios ? "kakaoweb://closeBrowser" : "kakaotalk://inappbrowser/close";
+            }, 1200);
+            return;
+          }
+          if (/ Line\//i.test(ua)) {
+            if (/[?&]openExternalBrowser=1/.test(url)) return;
+            sessionStorage.setItem(KEY, "1");
+            var h = location.hash;
+            var base = url.slice(0, url.length - h.length);
+            location.replace(base + (base.indexOf("?") < 0 ? "?" : "&") + "openExternalBrowser=1" + h);
+            return;
+          }
+          var inApp = /Instagram|FBAN|FBAV|FB_IAB|NAVER\(inapp|DaumApps|KAKAOSTORY|Band\/|everytimeApp|Snapchat|Twitter|TikTok|musical_ly|BytedanceWebview|; wv\)/i.test(ua);
+          if (android && inApp) {
+            sessionStorage.setItem(KEY, "1");
+            location.href = "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=" + location.protocol.replace(":", "") + ";package=com.android.chrome;end";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>스타크래프트 리플레이 재생기</title>
   </head>
   <body>
