@@ -300,7 +300,7 @@ export default function ExtShareScreen() {
     return (<div className="scr-app scr-app-fallback-scroll scr-extshare" id="scr-app">
       <div className="scr-bg-grid"/>
       <div id="scroll-root">
-        <main className="scr-main scr-extshare-main">
+        <main className={open ? "scr-main scr-extshare-main is-play" : "scr-main scr-extshare-main"}>
           
           <header className="scr-crumb">
             {(listId !== null || open || doc) && (<button type="button" className="scr-crumb-back" onClick={goBack}>
@@ -351,7 +351,8 @@ export default function ExtShareScreen() {
           
           {!doc && listId !== null && !open && (current ? !current.locked || !!pass : false) && (games === null ? <LoadingMark /> : (<div className="scr-extshare-games">
                 {games.length === 0 && (<p className="scr-extshare-empty">이 목록에는 아직 경기가 없습니다.</p>)}
-                {games.map((g) => {
+                {/* 최근 경기가 위다(요청: "게임 목록 순서 뒤집어야함") — 받은 차례를 뒤집어 그린다. */}
+                {[...games].reverse().map((g) => {
                 const mins = g.durationSeconds != null
                     ? Math.round(g.durationSeconds / 60) : null;
                 return (<button type="button" key={g.id} className="scr-extshare-game" onClick={() => openGame(g.id)}>

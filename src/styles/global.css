@@ -2234,6 +2234,8 @@ html:not(.scr-light-theme) .scr-story-snap-on::after {
   --extshare-pad-x: 10px;
   max-width: var(--content-max); margin: 0 auto; padding: 18px var(--extshare-pad-x) 48px;
 }
+/* 재생 화면(경기 하나를 연 자리)만 넓다(요청: "사이트 재생화면 폭 1980px") — 목록 화면은 --content-max 그대로. */
+.scr-extshare-main.is-play { max-width: 1980px; }
 
 
 .scr-crumb {
